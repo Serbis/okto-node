@@ -1,0 +1,4 @@
+ 1. Run install_node.sh 
+ 2. Run install_nsd.sh
+ 3. Set ip in node.conf if needed
+ 4. Maual run systemctl start node
