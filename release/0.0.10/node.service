@@ -1,0 +1,36 @@
+[Unit]
+Description=main node executable module (jsvc)
+After=network.target
+
+[Service]
+Type=simple
+PIDFile=/var/run/node.pid
+Environment=PIDFILE=/var/run/node.pid
+Environment=NODE_JAVA_HOME=/usr/lib/jvm/jdk1.8.0_181
+Environment=NODE_VERSION=0.0.10
+Environment=NODE_CP=/usr/share/node/node-0.0.10.jar
+Environment=OPTS=-nodetach
+Environment=ARGS=/usr/share/node
+Environment=USER=node
+Environment=ERRFILE=SYSLOG
+Environment=OUTFILE=/dev/null
+Environment=TARGET_CLASS=ru.serbis.okto.node.daemon.ApplicationDaemon
+Environment=JAVA_OPTS=-Xmx32m
+
+ExecStart=/usr/bin/jsvc \
+            -user ${USER} \
+            -java-home ${NODE_JAVA_HOME} \
+            -pidfile ${PIDFILE} \
+            -errfile ${ERRFILE} \
+            -outfile ${OUTFILE} \
+            ${OPTS} \
+            -cp ${NODE_CP} \
+            ${TARGET_CLASS} \
+            ${ARGS}
+
+ExecStop=/usr/bin/jsvc \
+            -pidfile ${PIDFILE} \
+            -stop ${TARGET_CLASS}
+
+[Install]
+WantedBy=multi-user.target

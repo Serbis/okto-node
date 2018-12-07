@@ -1,0 +1,13 @@
+[Unit]
+Description=node system daemon
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/nsd.pid
+ExecStart=/usr/share/node/nsd/nsd start
+ExecStop=/usr/share/node/nsd/nsd stop
+ExecReload=/usr/share/node/nsd/nsd restart
+
+[Install]
+WantedBy=multi-user.target

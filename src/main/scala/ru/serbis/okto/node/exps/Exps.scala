@@ -4,7 +4,7 @@ import java.io.File
 import java.net.{Socket, StandardSocketOptions}
 import java.nio.file.{Files, StandardOpenOption}
 
-import javax.script.ScriptContext
+import javax.script.{Invocable, ScriptContext, ScriptEngineManager}
 import akka.actor.{Actor, ActorSystem, Props, Status}
 import akka.io.{IO, Tcp}
 import akka.stream.{ActorMaterializer, Attributes, Inlet, SinkShape}
@@ -28,7 +28,10 @@ import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-object Exps extends App with StreamLogger {
+
+class ScriptTerminated extends Throwable
+
+object Exps extends StreamLogger {
   implicit val system = ActorSystem("my-system")
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
@@ -36,6 +39,31 @@ object Exps extends App with StreamLogger {
 
   initializeGlobalLogger(system, LogLevels.Info)
   logger.addDestination(system.actorOf(StdOutLogger.props, "StdOutLogger"))
+
+  /*val engine = new ScriptEngineManager().getEngineByName("nashorn")
+  val context = engine.getContext
+
+  context.setAttribute("sleep", (ms: Int) => Thread.sleep(ms), ScriptContext.ENGINE_SCOPE)
+  context.setAttribute("stop", () => {
+    throw new ScriptTerminated
+    0
+  }, ScriptContext.ENGINE_SCOPE)
+
+  val js = """function sig() { print("SIG"); stop(); } while(true) { sleep(1000); print("x"); }""" //
+
+  Future {
+    try {
+      engine.eval(js)
+    } catch {
+      case e: ScriptTerminated =>
+        //engine.
+        println("Script finished")
+      case e: Throwable => e.printStackTrace()
+    }
+
+  }
+  Thread.sleep(3000)
+  engine.asInstanceOf[Invocable].invokeFunction("sig")*/
 
   val file = new File("dist/node/storage/tefi").toPath
   Files.deleteIfExists(file)
