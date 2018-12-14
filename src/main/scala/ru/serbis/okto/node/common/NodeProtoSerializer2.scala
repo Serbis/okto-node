@@ -27,6 +27,7 @@ class NodeProtoSerializer2 extends StreamLogger {
 
   /** Messages manifests */
   final val m_Data = 1002
+  final val m_Action = 1003
 
   /** Deserialize message from binary representation
     *
@@ -44,6 +45,7 @@ class NodeProtoSerializer2 extends StreamLogger {
       Try {
         manifest match {
           case `m_Data` => Some(Data.parseFrom(bs.drop(4).toArray))
+          case `m_Action` => Some(Action.parseFrom(bs.drop(4).toArray))
           case _ =>
             logger.error(s"Could not serialize the $manifest object. The serialization method is not defined")
             None
@@ -71,6 +73,7 @@ class NodeProtoSerializer2 extends StreamLogger {
     val bf = ByteBuffer.allocate(4)
     o match {
       case v: Data => Some(ByteString(bf.putInt(m_Data).array()) ++ ByteString(v.toByteArray))
+      case v: Action => Some(ByteString(bf.putInt(m_Action).array()) ++ ByteString(v.toByteArray))
       case _ =>
         logger.error(s"Could not serialize the $o object. The serialization method is not defined")
         None

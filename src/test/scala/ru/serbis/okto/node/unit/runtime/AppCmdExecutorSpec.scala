@@ -146,6 +146,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
           val shellProcess = TestProbe()
           val shellStdIn = TestProbe()
           val shellStdOut = TestProbe()
+          val executor = TestProbe()
 
           val vmPool = TestProbe()
           val env = Env(vmPool = vmPool.ref, runtime = runtime.ref, system = Some(system))
@@ -159,7 +160,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
 
           probe.send(target, AppCmdExecutor.Commands.CreateLocalShell())
           runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-          runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, 1000, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+          runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 1000, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
           shellProcess.expectMsg(Process.Commands.Start)
           probe.expectMsg(AppCmdExecutor.Responses.ShellDefinition(shellProcess.ref, shellStdIn.ref, shellStdOut.ref))
         }

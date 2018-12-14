@@ -30,6 +30,14 @@ class NodeProtoSerializer2Spec extends TestKit(ActorSystem("TestSystem")) with I
       deserializedMessage.get shouldEqual orig
     }
 
+    "Serialize/Deserialize message Action" in {
+      val serializer = NodeProtoSerializer2()
+      val orig = Action(99)
+      val serializedMessage = serializer.toBinary(orig)
+      val deserializedMessage = serializer.fromBinary(serializedMessage.get)
+      deserializedMessage.get shouldEqual orig
+    }
+
     "Return None for message with incorrect manifest" in {
       val serializer = NodeProtoSerializer2()
       val orig = Data(ByteString("abc").toProto)

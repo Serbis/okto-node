@@ -79,19 +79,23 @@ class PmInstall(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Ac
 
     /** Start fsm message */
     case Event(Exec, _) =>
+      println("---SUS0.0---")
       orig = sender()
 
       val options = getOptions(nextArgs)
 
       if (!options.contains("-n")) {
+        println("---SUS0.1---")
         orig ! Pm.Internals.Complete(10, "Option '-n' is not presented")
         stop
       } else {
         val name = options("-n")
         if (name.exists(v => v == '.' || v == '/' || v == ' ')) {
+          println("---SUS0.2---")
           orig ! Pm.Internals.Complete(11, "Script name contain some restricted symbols")
           stop
         } else {
+          println("---SUS0.3---")
           stdOut ! Stream.Commands.WriteWrapped(ByteString().prompt)
           goto(CollectingCode) using InCollectingCode(options("-n"), ByteString.empty)
         }
@@ -113,14 +117,18 @@ class PmInstall(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Ac
     case Event(Stream.Responses.Data(bs), data: InCollectingCode) =>
       val eoiIndex = bs.indexOf(StreamControls.EOI)
       if (eoiIndex == -1) {
+        println("---SUS1.0---")
         stay using data.copy(inBuf = data.inBuf ++ bs)
       } else {
+        println("---SUS1.1---")
         //TODO [5] ну а если за EOI блок данных, скрипт будет с хренью
         val code = (data.inBuf ++ bs.slice(0, bs.size - 1)).utf8String
         if (code.isEmpty) {
+          println("---SUS1.2---")
           orig ! Pm.Internals.Complete(12, "Presented code is empty string")
           stop
         } else {
+          println("---SUS1.3---")
           env.usercomsRep ! UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition(data.cmd, s"${data.cmd}.js"))
           goto(WaitConfigCreation) using InWaitConfigCreation(data.cmd, code)
         }
@@ -162,6 +170,7 @@ class PmInstall(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Ac
 
     /** Successfully created scrupt file. Command terminates with success */
     case Event(ScriptsRep.Responses.Created, _) =>
+      println("---SUS2---")
       orig ! Pm.Internals.Complete(0, "Success")
       stop
 

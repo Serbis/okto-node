@@ -102,7 +102,7 @@ class Pm(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testMode
 
         goto(CompleteExecution) using InCompleteExecution()
       } else {
-        self ! Complete(1, "Not enough arguments")
+        self ! Complete(2, "Not enough arguments")
         goto(CompleteExecution) using InCompleteExecution()
       }
 

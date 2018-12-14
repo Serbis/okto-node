@@ -57,8 +57,11 @@ object ProcessConstructor {
     /** Successful completion of the process initialization process
       *
       * @param ref process reference
+      * @param executor executor actor reference
+      * @param pid process identifier
+      * @param streams io streams of the process
       */
-    case class ProcessDef(ref: ActorRef, pid: Int, streams: Map[Int, ActorRef])
+    case class ProcessDef(ref: ActorRef, executor: ActorRef, pid: Int, streams: Map[Int, ActorRef])
 
     /** Error response */
     case object Error
@@ -123,7 +126,7 @@ class ProcessConstructor(env: Env, testMode: Boolean) extends FSM[State, Data] w
       //if (data.count <= 1) {
         val process = context.system.actorOf(Process.props(env, data.initiator, data.executor, data.streams, data.pid), s"process_${data.pid}")
         logger.debug(s"Process with pid '${data.pid}' was constructed")
-        data.orig ! ProcessDef(process, data.pid, data.streams)
+        data.orig ! ProcessDef(process, data.executor, data.pid, data.streams)
         stop
       //} else {
       //  stay using data.copy(count = data.count - 1)

@@ -56,12 +56,24 @@ object Shell {
   object Internals {
     case object ProcessStatement
   }
+
+  object Commands {
+
+    /** Message that realize keep-alive mechanics. It's describe in each state, and does not allow to come state timeout.
+      * This message produced by shell tunnel after receive it message Action with type 1 from connection */
+    case object KeepAlive
+
+    /** Message that realize shell soft close action. It's describe in each state, and realize correct shell stopping at
+      * each situation. This message produced by shell tunnel after receive it message Action with type 1 from connection */
+    case object Die
+  }
 }
 
 class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testMode: Boolean = false) extends CmdExecutor(systemEx, testMode) {
   import Shell.States._
   import Shell.StatesData._
   import Shell.Internals._
+  import Shell.Commands._
 
   setLogSourceName(s"Shell*${self.path.name}")
   setLogKeys(Seq("Shell"))
@@ -82,6 +94,14 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
       stdIn = req.streams(1)
 
       goto(CommandMode) using InCommandMode(ByteString())
+
+    //NO SENSE TEST
+    case Event(KeepAlive, _) => stay
+
+    case Event(Die, _) =>
+      implicit val logQualifier = LogEntryQualifier("Idle_Die")
+      logger.debug("Shell killed initial mode")
+      stop
 
     //NOT TESTABLE
     case Event(StateTimeout, _) =>
@@ -117,9 +137,17 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
         }
       }
 
+    //NO SENSE TEST
+    case Event(KeepAlive, _) => stay
+
+    case Event(Die, _) =>
+      implicit val logQualifier = LogEntryQualifier("CommandMode_Die")
+      logger.debug("Shell killed in command mode")
+      process ! CommandsUnion.Responses.ExecutorFinished(0)
+      stop
+
     case Event(StateTimeout, _: InCommandMode) =>
       implicit val logQualifier = LogEntryQualifier("CommandMode_StateTimeout")
-      println(sender())
       logger.info("Idle timeout was reached. Shell was stopped")
       stdOut.tell(WriteWrapped(ByteString(Array(EOF))), ActorRef.noSender)
       process ! CommandsUnion.Responses.ExecutorFinished(0)
@@ -141,6 +169,15 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
           process ! CommandsUnion.Responses.ExecutorFinished(0)
           stop
       }
+
+    //NO SENSE TEST
+    case Event(KeepAlive, _) => stay
+
+    case Event(Die, _) =>
+      implicit val logQualifier = LogEntryQualifier("StatementsProcessingMode_Die")
+      logger.debug("Shell killed in statement processing mode")
+      process ! CommandsUnion.Responses.ExecutorFinished(0)
+      stop
 
     //NOT TESTABLE
     case Event(StateTimeout, _: InCommandMode) =>
@@ -169,6 +206,14 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
       stdOut.tell(WriteWrapped(ByteString("Unable to execute statements due to internal error 2") ++ ByteString().eoi.eop.exit(0)), ActorRef.noSender)
       goto(CommandMode) using InCommandMode()
 
+    //NO SENSE TEST
+    case Event(KeepAlive, _) => stay
+
+    case Event(Die, _) =>
+      implicit val logQualifier = LogEntryQualifier("StatementPipeInitMode_Die")
+      logger.debug("Shell killed in pipe init mode")
+      process ! CommandsUnion.Responses.ExecutorFinished(0)
+      stop
 
     case Event(StateTimeout, _: InStatementPipeInitMode) =>
       implicit val logQualifier = LogEntryQualifier("StatementPipeInitMode_StateTimeout")
@@ -203,6 +248,15 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
       logger.debug("Attached self as consumer to pipe stdOut. Flush stream buffer")
       data.circuit.stdOut.tell(Stream.Commands.Flush, ActorRef.noSender)
       stay
+
+    //NO SENSE TEST
+    case Event(KeepAlive, _) => stay
+
+    case Event(Die, _) =>
+      implicit val logQualifier = LogEntryQualifier("StatementPipeInteractionMode_Die")
+      logger.debug("Shell killed in pipe interaction mode")
+      process ! CommandsUnion.Responses.ExecutorFinished(0)
+      stop
 
     //TODO [10] см. комментарий ниже
     // Тут вот не очень ясно что должно происходить. Рассмотрим такую ситуацию - запущена некоторая команда и ожидает

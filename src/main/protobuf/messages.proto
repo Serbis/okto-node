@@ -9,3 +9,10 @@ option optimize_for = SPEED;
 message Data {
     bytes data = 1;
 }
+
+//Channel action. Type may be:
+//  0 - close connection
+//  1 - keep-alive message
+message Action {
+    int32 type = 1;
+}

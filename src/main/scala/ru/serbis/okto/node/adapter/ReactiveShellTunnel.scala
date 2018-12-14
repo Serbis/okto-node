@@ -1,7 +1,7 @@
 package ru.serbis.okto.node.adapter
 
 import akka.actor.SupervisorStrategy.Stop
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, PoisonPill, Props}
 import akka.http.scaladsl.model.ws.{BinaryMessage, TextMessage}
 import akka.util.ByteString
 import ru.serbis.okto.node.common.{Env, NodeProtoSerializer2}
@@ -17,6 +17,7 @@ import ru.serbis.okto.node.reps.SyscomsRep.Responses.SystemCommandDefinition
 import ru.serbis.okto.node.reps.UsercomsRep.Responses.UserCommandDefinition
 import ru.serbis.okto.node.runtime.StreamControls._
 import ru.serbis.okto.node.runtime.Process
+import ru.serbis.okto.node.syscoms.shell.Shell
 
 import scala.concurrent.duration._
 import scala.collection.mutable
@@ -74,6 +75,9 @@ class ReactiveShellTunnel(env: Env) extends Actor with StreamLogger {
   /** StdOut of the active shell program */
   var shellStdOut: Option[ActorRef] = None
 
+  /** Shell executor actor */
+  var shellExecutor: Option[ActorRef] = None
+
   /** Data buffer on the connection side. Used when the data came from the connection, but the shell program has not
     * yet been fully initialized */
   var inBuffer = ByteString.empty
@@ -107,6 +111,24 @@ class ReactiveShellTunnel(env: Env) extends Actor with StreamLogger {
             } else {
               inBuffer = inBuffer ++ t.data.toAkka
             }
+
+          case proto_messages.Action(t) if t == 0 =>
+            logger.debug(s"Received action type 'close'. Initiated shell die")
+            if (inSpawn) {
+              mustStop = true
+            } else {
+              shellExecutor.get ! Shell.Commands.Die
+              logger.debug("Tunnel was stopped")
+              connection.get ! PoisonPill
+              context.stop(self)
+            }
+
+          case proto_messages.Action(t) if t == 1 =>
+            logger.debug(s"Received action type 'keepalive'. Shell life was prolongate")
+            if (!inSpawn) {
+              shellExecutor.get ! Shell.Commands.KeepAlive
+            }
+
           case _ => //NOT TESTABLE while program have only one message
             logger.warning(s"Unexpected message from ws tunnel '${deserializedMessage.get}'")
         }
@@ -123,6 +145,7 @@ class ReactiveShellTunnel(env: Env) extends Actor with StreamLogger {
         m.ref ! Process.Commands.Start
         shellStdOut = Some(m.streams(0))
         shellStdIn = Some(m.streams(1))
+        shellExecutor = Some(m.executor)
         shellStdOut.get ! Stream.Commands.Attach(self)
         shellStdOut.get ! Stream.Commands.Flush
 
@@ -134,7 +157,8 @@ class ReactiveShellTunnel(env: Env) extends Actor with StreamLogger {
         inSpawn = false
       } else {
         m.streams(1).tell(Stream.Commands.Write(ByteString(Array(EOF))), ActorRef.noSender)
-        logger.debug("Tunnel was stopped be peer close")
+        logger.debug("Tunnel was stopped")
+        connection.get ! PoisonPill
         self ! Stop
       }
 
@@ -156,7 +180,8 @@ class ReactiveShellTunnel(env: Env) extends Actor with StreamLogger {
         mustStop = true
       } else {
         shellStdIn.get.tell(Stream.Commands.Write(ByteString(Array(EOF))), ActorRef.noSender)
-        logger.debug("Tunnel was stopped be peer close")
+        logger.debug("Tunnel was stopped be peer")
+        connection.get ! PoisonPill
         context.stop(self)
       }
   }

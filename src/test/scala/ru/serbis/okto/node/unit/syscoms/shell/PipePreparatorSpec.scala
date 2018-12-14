@@ -31,6 +31,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val syscomsRep = TestProbe()
       val runtime = TestProbe()
       val process1 = TestProbe()
+      val executor = TestProbe()
       val stdIn1 = TestProbe()
       val stdOut1 = TestProbe()
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
@@ -53,7 +54,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       // этот кусок кода являет заглушкой до разработки полноценного пайпинга. Сейчас PipePreparator возвращает замыкние потоков по первой команде из списка
 
       runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target))
-      runtime.reply(ProcessDef(process1.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref)))
+      runtime.reply(ProcessDef(process1.ref, executor.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref)))
       probe.expectMsg(PipePreparator.Responses.PipeCircuit(stdIn1.ref, stdOut1.ref))
 
       //REVERSE TEST
@@ -74,7 +75,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       )))
 
       runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target2))
-      runtime.reply(ProcessDef(process1.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref)))
+      runtime.reply(ProcessDef(process1.ref, executor.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref)))
       probe.expectMsg(PipePreparator.Responses.PipeCircuit(stdIn1.ref, stdOut1.ref))
     }
 
