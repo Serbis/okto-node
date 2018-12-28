@@ -30,10 +30,22 @@ class StatementsParser (val input: ParserInput) extends Parser {
     })
   }
 
+  // cmd1 arg1 'arg2 arg3'
   def Command = rule {
-    (ws.? ~ Ident ~ ws.?).+ ~> ((a: Any) => {
-      val x = a.asInstanceOf[Vector[IdentNode]]
-      CommandNode(x.head.value, x.tail.map(v => v.value))
+    (ws.? ~ Ident ~ ws.? ~ zeroOrMore(Arg | EscapedArg).separatedBy(" ") ~ ws.?) ~> ((a: IdentNode, args: Any) => {
+      CommandNode(a.value, args.asInstanceOf[Seq[String]].toVector) //x.tail.map(v => v.value)
+    })
+  }
+
+  def Arg = rule {
+    Ident ~> (v => {
+      v.value
+    })
+  }
+
+  def EscapedArg = rule {
+    "'" ~ capture(oneOrMore(EscapedArgChar)) ~ "'" ~> ((a: String) => {
+      a
     })
   }
 
@@ -52,7 +64,8 @@ class StatementsParser (val input: ParserInput) extends Parser {
   def escapedChar: Rule1[String] = rule { """\""" ~ (capture(StringCharSet) | reservedChar) }
 
 
-  lazy val IdentCharSet = InnerChar -- '|' -- ' '
+  lazy val IdentCharSet = InnerChar -- '|' -- ' ' -- '\''
   lazy val StringCharSet = InnerChar -- "\"" ++ ' '
+  lazy val EscapedArgChar = InnerChar -- "'" ++ ' '
   lazy val InnerChar =  CharPredicate.Visible.++(CharPredicate('\u0400' to '\u04FF'))
 }

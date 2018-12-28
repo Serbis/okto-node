@@ -257,7 +257,7 @@ class VStorageSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val shellFut = Future {
           target.readStreamSep("a", "s")
         }
-        storage.expectMsg(StorageRep.Commands.ReadAsStream("a", 1024))
+        storage.expectMsg(StorageRep.Commands.ReadAsStream("a",1000000))
         storage.reply(StorageRep.Responses.OperationError("e"))
         val result = Await.result(shellFut, 1 second)
         result shouldEqual null
@@ -270,7 +270,7 @@ class VStorageSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val shellFut = Future {
           target.readStreamSep("a", "s")
         }
-        storage.expectMsg(StorageRep.Commands.ReadAsStream("a", 1024))
+        storage.expectMsg(StorageRep.Commands.ReadAsStream("a", 1000000))
         val result = Await.result(shellFut, 1 second)
         result shouldEqual null
       }

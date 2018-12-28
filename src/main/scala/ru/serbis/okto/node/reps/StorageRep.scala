@@ -81,8 +81,13 @@ object StorageRep {
 
     /** Get info for files specified files. Respond with FilesInfo with map where key requested file name and value info
       * about it or error of which failed to get file info. If files list in original command is empty, info about all files
-      * in the storage will be returned. May return OperationError if unable to get access to the storage files list */
-    case class GetInfo(files: List[String])
+      * in the storage will be returned. May return OperationError if unable to get access to the storage files list
+      *
+      * @param files files list
+      * @param base read as dir in the storage. This path is relative to the storage dir. For example "dir1/dir2/dir" or ""
+      *             for storage root
+      **/
+    case class GetInfo(files: List[String], base: String)
   }
 
   object Responses {
@@ -106,7 +111,7 @@ object StorageRep {
     case class OperationError(reason: String)
 
     /** File information descriptor */
-    case class FileInfo(size: Long, created: Long, modified: Long)
+    case class FileInfo(dir: Boolean, size: Long, created: Long, modified: Long)
   }
 }
 
@@ -237,6 +242,7 @@ class StorageRep(dir: String, files: FilesProxy) extends Actor with StreamLogger
         pipe {
           Future {
             try {
+              files.createDirectories(p.getParent)
               files.write(p, data.toArray, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
               logger.debug(s"Appended file '$path' with size of data '${data.size}'")
               OperationSuccess
@@ -257,6 +263,7 @@ class StorageRep(dir: String, files: FilesProxy) extends Actor with StreamLogger
         pipe {
           Future {
             try {
+              files.createDirectories(p.getParent)
               files.write(p, data.toArray, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)
               logger.debug(s"Rewrite file '$path' with size of data '${data.size}'")
               OperationSuccess
@@ -277,6 +284,7 @@ class StorageRep(dir: String, files: FilesProxy) extends Actor with StreamLogger
         pipe {
           Future {
             try {
+              files.createDirectories(p.getParent)
               if (!files.exists(p))
                 files.createFile(p)
 
@@ -337,16 +345,16 @@ class StorageRep(dir: String, files: FilesProxy) extends Actor with StreamLogger
       }
 
     /** See the message description */
-    case GetInfo(filesList) =>
+    case GetInfo(filesList, base) =>
       implicit val logQualifier = LogEntryQualifier("GetInfo")
 
       pipe {
         Future {
           try {
             val list = if (filesList.isEmpty) { //For empty files list, get all files in the storage
-              files.list(new File(dir).toPath).toArray.toList.asInstanceOf[List[Path]].map(m => m.toAbsolutePath)
+              files.list(new File(if (base.isEmpty) dir else s"$dir/$base").toPath).toArray.toList.asInstanceOf[List[Path]].map(m => m.toAbsolutePath)
             } else {
-              filesList.map(m => new File(s"$dir/$m").toPath)
+              filesList.map(m => new File(if (base.isEmpty) s"$dir/$m" else s"$dir/$base/$m").toPath)
             }
 
             val r = list.foldLeft(Map.empty[String, Either[Throwable, FileInfo]]) {(a, m) =>
@@ -354,7 +362,7 @@ class StorageRep(dir: String, files: FilesProxy) extends Actor with StreamLogger
                 if (!malformedCheck(m))
                   throw new Throwable("Malformed path")
                 val ats = files.readAttributes(m, "size,lastModifiedTime,creationTime")
-                val info = FileInfo(ats("size").asInstanceOf[Long],
+                val info = FileInfo(files.isDirectory(m), ats("size").asInstanceOf[Long],
                   ats("creationTime").asInstanceOf[FileTime].toMillis,
                   ats("lastModifiedTime").asInstanceOf[FileTime].toMillis)
                 logger.warning(s"Extracted file info '${m.getFileName.toString} -> $info'")

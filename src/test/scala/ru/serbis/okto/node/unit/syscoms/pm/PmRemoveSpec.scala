@@ -64,7 +64,7 @@ class PmRemoveSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       probe.send(target1, PmRemove.Commands.Exec)
       probe.expectMsg(Pm.Internals.Complete(21, "Script name contain restricted symbols"))
 
-      val target2 = system.actorOf(PmRemove.props(Vector(".a"), env, stdIn.ref, stdOut.ref))
+      val target2 = system.actorOf(PmRemove.props(Vector("..a"), env, stdIn.ref, stdOut.ref))
       probe.send(target2, PmRemove.Commands.Exec)
       probe.expectMsg(Pm.Internals.Complete(21, "Script name contain restricted symbols"))
 

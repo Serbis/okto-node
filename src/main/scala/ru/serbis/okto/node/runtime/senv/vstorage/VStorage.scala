@@ -129,7 +129,7 @@ class VStorage(storage: ActorRef, system: ActorSystemProxy, tm: Boolean = false)
     */
   def readStreamSep(file: String, separator: String): StreamSeparatedIterator = {
     implicit val logQualifier = LogEntryQualifier("readStream")
-    inWrap(ReadAsStream(file, 1024), null) {
+    inWrap(ReadAsStream(file, 1000000), null) { //TODO вот этот буфер выделятся целком, иначе говоря каждый открытый файл будет занимать в памяти размрр чанка
       case StreamData(stream) =>
         logger.debug(s"File '$file' was read as separated stream with separator '$separator'")
         StreamSeparatedIterator(stream, separator, system)
@@ -153,8 +153,8 @@ class VStorage(storage: ActorRef, system: ActorSystemProxy, tm: Boolean = false)
     try {
       p(Await.result(storage ? req, futTimeout)).asInstanceOf[T]
     } catch {
-      case _: Throwable =>
-        logger.warning(s"Unable receive response from storage repository - response timeout'")
+      case e: Throwable =>
+        logger.warning(s"Unable receive response from storage repository, reason '${e.getMessage}'")
         null.asInstanceOf[T]
     }
   }

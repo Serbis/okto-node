@@ -18,6 +18,8 @@ object TestFilesProxy {
   object Actions {
     case class DeleteIfExists(path: Path)
     case class CreateFile(path: Path, attrs: FileAttribute[_]*)
+    case class CreateDirectories(path: Path, attrs: FileAttribute[_]*)
+    case class IsDirectory(path: Path, options: LinkOption*)
     case class Write(path: Path, bytes: ByteString, options: OpenOption*)
     case class Exists(path: Path, options: LinkOption*)
     case class ReadAllBytes(path: Path)
@@ -49,6 +51,20 @@ class TestFilesProxy(tpRef: ActorRef) extends FilesProxy {
     Await.result(tpRef.ask(Actions.CreateFile(path, attrs: _*))(3 second), 3 second) match {
       case Predicts.Throw(ex) => throw ex
       case v: Path => v
+    }
+  }
+
+  override def createDirectories(path: Path, attrs: FileAttribute[_]*): Path = {
+    Await.result(tpRef.ask(Actions.CreateDirectories(path, attrs: _*))(3 second), 3 second) match {
+      case Predicts.Throw(ex) => throw ex
+      case v: Path => v
+    }
+  }
+
+  override def isDirectory(path: Path, options: LinkOption*): Boolean = {
+    Await.result(tpRef.ask(Actions.IsDirectory(path, options: _*))(3 second), 3 second) match {
+      case Predicts.Throw(ex) => throw ex
+      case v: Boolean => v
     }
   }
 

@@ -75,7 +75,7 @@ class PmRemove(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Act
         orig ! Pm.Internals.Complete(20, "Command name is not presented")
         stop
       } else {
-        if (name.get.exists(v => v == '.' || v == '/' || v == ' ')) {
+        if (name.get.contains("..") || name.get.contains("/") || name.get.contains(" ")) {
           orig ! Pm.Internals.Complete(21, "Script name contain restricted symbols")
           stop
         } else {

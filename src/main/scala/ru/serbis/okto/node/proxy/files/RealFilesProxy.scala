@@ -18,6 +18,10 @@ class RealFilesProxy extends FilesProxy {
 
   override def createFile(path: Path, attrs: FileAttribute[_]*): Path = Files.createFile(path, attrs: _*)
 
+  override def createDirectories(path: Path, attrs: FileAttribute[_]*): Path = Files.createDirectories(path, attrs: _*)
+
+  override def isDirectory(path: Path, options: LinkOption*): Boolean = Files.isDirectory(path, options: _*)
+
   override def write(path: Path, bytes: Array[Byte], options: OpenOption*): Path = Files.write(path, bytes, options: _*)
 
   override def exists(path: Path, options: LinkOption*): Boolean = Files.exists(path, options: _*)

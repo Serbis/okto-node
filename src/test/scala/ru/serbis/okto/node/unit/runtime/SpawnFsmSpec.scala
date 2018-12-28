@@ -34,11 +34,11 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env))
-      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref))
+      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       runtime.reply(Runtime.Responses.Pid(1000))
       val inject = runtime.expectMsgType[Runtime.Commands.Inject]
-      inject.pid shouldEqual 1000
+      inject.procDef.pid shouldEqual 1000
       runtime.reply(Runtime.Responses.Injected)
       val procDef = probe.expectMsgType[ProcessConstructor.Responses.ProcessDef]
       procDef.pid shouldEqual 1000
@@ -55,14 +55,14 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref, scriptsRep = scriptRep.ref)
 
         val target = system.actorOf(SpawnFsm.props(env))
-        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref))
+        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref, "shell"))
         scriptRep.expectMsg(ScriptsRep.Commands.GetScript("userEcho.js"))
         scriptRep.reply(ScriptsRep.Responses.Script("xxx"))
 
         runtime.expectMsg(Runtime.Commands.ReservePid)
         runtime.reply(Runtime.Responses.Pid(1001))
         val inject = runtime.expectMsgType[Runtime.Commands.Inject]
-        inject.pid shouldEqual 1001
+        inject.procDef.pid shouldEqual 1001
         runtime.reply(Runtime.Responses.Injected)
         val procDef = probe.expectMsgType[ProcessConstructor.Responses.ProcessDef]
         procDef.pid shouldEqual 1001
@@ -78,7 +78,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref, scriptsRep = scriptRep.ref)
 
         val target = system.actorOf(SpawnFsm.props(env))
-        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref))
+        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref, "shell"))
         scriptRep.expectMsg(ScriptsRep.Commands.GetScript("userEcho.js"))
         scriptRep.reply(ScriptsRep.Responses.ScriptNotFound)
         probe.expectMsg(Runtime.Responses.SpawnError)
@@ -94,7 +94,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref, scriptsRep = scriptRep.ref)
 
         val target = system.actorOf(SpawnFsm.props(env, testMode = true))
-        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref))
+        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref, "shell"))
         scriptRep.expectMsg(ScriptsRep.Commands.GetScript("userEcho.js"))
         probe.expectMsg(Runtime.Responses.SpawnError)
       }
@@ -109,7 +109,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env))
-      probe.send(target, SpawnFsm.Commands.Exec("xxx", Vector("a"), SystemCommandDefinition(""), initiator.ref))
+      probe.send(target, SpawnFsm.Commands.Exec("xxx", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       probe.expectMsg(Runtime.Responses.SpawnError)
     }
 
@@ -122,7 +122,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env))
-      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref))
+      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       probe.expectMsg(10 second, Runtime.Responses.SpawnError)
     }
@@ -136,11 +136,11 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env, testMode = true))
-      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref))
+      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       runtime.reply(Runtime.Responses.Pid(1003))
       val inject = runtime.expectMsgType[Runtime.Commands.Inject]
-      inject.pid shouldEqual 1003
+      inject.procDef.pid shouldEqual 1003
       probe.expectMsg(Runtime.Responses.SpawnError)
     }
   }

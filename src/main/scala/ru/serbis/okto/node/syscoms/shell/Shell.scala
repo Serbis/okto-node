@@ -197,13 +197,13 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
       implicit val logQualifier = LogEntryQualifier("StatementPipeInitMode_CommandsNotFound")
       val fnc = nc.foldLeft("")((a, v) => s"$a, $v").drop(2)
       logger.info(s"Unable to create pipe, some commands not found '$fnc'")
-      stdOut.tell(WriteWrapped(ByteString(s"Commands not found - $fnc") ++ ByteString().eoi.eop.exit(0)), ActorRef.noSender) //TODO ну вот нехорошо нелвой код возаращать, программы же как бы не заработала, а значит это ошибка
+      stdOut.tell(WriteWrapped(ByteString(s"Commands not found - $fnc") ++ ByteString().eoi.eop.exit(10000)), ActorRef.noSender) //TODO ну вот нехорошо нелвой код возаращать, программы же как бы не заработала, а значит это ошибка
       goto(CommandMode) using InCommandMode()
 
     case Event(PipePreparator.Responses.InternalError, _: InStatementPipeInitMode) =>
       implicit val logQualifier = LogEntryQualifier("StatementPipeInitMode_InternalError 1")
       logger.info("Unable to execute statements due to internal error 2")
-      stdOut.tell(WriteWrapped(ByteString("Unable to execute statements due to internal error 2") ++ ByteString().eoi.eop.exit(0)), ActorRef.noSender)
+      stdOut.tell(WriteWrapped(ByteString("Unable to execute statements due to internal error 2") ++ ByteString().eoi.eop.exit(10001)), ActorRef.noSender)
       goto(CommandMode) using InCommandMode()
 
     //NO SENSE TEST

@@ -6,7 +6,7 @@ import akka.util.ByteString
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
 import ru.serbis.okto.node.runtime.senv.VStdOut
-import ru.serbis.okto.node.runtime.{AppCmdExecutor, StreamControls, Stream}
+import ru.serbis.okto.node.runtime.{StreamControls, Stream}
 
 class VStdOutSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll with StreamLogger {
 

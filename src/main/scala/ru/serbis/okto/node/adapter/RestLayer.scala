@@ -84,7 +84,7 @@ class RestLayer(env: Env) extends Actor with StreamLogger {
       }.to(Sink.actorRef[ReactiveShellTunnel.Commands.Receive](tunnelActor, ReactiveShellTunnel.Commands.Close))
 
     val outgoingMessages: Source[Message, NotUsed] =
-      Source.actorRef[BinaryMessage](10, OverflowStrategy.fail)
+      Source.actorRef[BinaryMessage](1000000, OverflowStrategy.fail)
         .mapMaterializedValue { outActor =>
           tunnelActor ! ReactiveShellTunnel.Commands.Connected(outActor)
           NotUsed

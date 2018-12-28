@@ -90,7 +90,7 @@ class PmInstall(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Ac
         stop
       } else {
         val name = options("-n")
-        if (name.exists(v => v == '.' || v == '/' || v == ' ')) {
+        if (name.contains("..") || name.contains("/") || name.contains(" ")) {
           println("---SUS0.2---")
           orig ! Pm.Internals.Complete(11, "Script name contain some restricted symbols")
           stop

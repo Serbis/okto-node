@@ -53,8 +53,8 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
 
       // этот кусок кода являет заглушкой до разработки полноценного пайпинга. Сейчас PipePreparator возвращает замыкние потоков по первой команде из списка
 
-      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target))
-      runtime.reply(ProcessDef(process1.ref, executor.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref)))
+      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target, "shell"))
+      runtime.reply(ProcessDef(process1.ref, executor.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref), 0, "", "", ("root", 0)))
       probe.expectMsg(PipePreparator.Responses.PipeCircuit(stdIn1.ref, stdOut1.ref))
 
       //REVERSE TEST
@@ -74,8 +74,8 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
         "c" -> None
       )))
 
-      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target2))
-      runtime.reply(ProcessDef(process1.ref, executor.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref)))
+      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target2, "shell"))
+      runtime.reply(ProcessDef(process1.ref, executor.ref, 1000, Map(0 -> stdOut1.ref, 1 -> stdIn1.ref), 0, "", "", ("root", 0)))
       probe.expectMsg(PipePreparator.Responses.PipeCircuit(stdIn1.ref, stdOut1.ref))
     }
 
@@ -113,7 +113,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
         "c" -> Some(UserCommandDefinition("c", "c.class"))
       )))
 
-      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target))
+      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target, "shell"))
       probe.expectMsg(PipePreparator.Responses.InternalError)
     }
 
@@ -163,7 +163,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
         "c" -> Some(UserCommandDefinition("c", "c.class"))
       )))
 
-      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target))
+      runtime.expectMsg(Runtime.Commands.Spawn("a", Vector.empty, SystemCommandDefinition("a.class"), target, "shell"))
       runtime.reply(Runtime.Responses.SpawnError)
       probe.expectMsg(PipePreparator.Responses.InternalError)
     }

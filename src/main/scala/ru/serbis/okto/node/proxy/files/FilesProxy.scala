@@ -27,6 +27,8 @@ import scala.concurrent.Future
 trait FilesProxy {
   def deleteIfExists(path: Path): Boolean
   def createFile(path: Path, attrs: FileAttribute[_]*): Path
+  def createDirectories(path: Path, attrs: FileAttribute[_]*): Path
+  def isDirectory(path: Path, options: LinkOption*): Boolean
   def write(path: Path, bytes: Array[Byte], options: OpenOption*): Path
   def exists(path: Path, options: LinkOption*): Boolean
   def readAllBytes(path: Path): Array[Byte]

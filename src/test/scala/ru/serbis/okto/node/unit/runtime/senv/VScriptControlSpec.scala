@@ -4,8 +4,9 @@ import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
-import ru.serbis.okto.node.runtime.AppCmdExecutor
+import ru.serbis.okto.node.runtime.app.AppCmdExecutor
 import ru.serbis.okto.node.runtime.senv.VScriptControl
+
 import scala.concurrent.duration._
 
 class VScriptControlSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender with WordSpecLike with Matchers with BeforeAndAfterAll with StreamLogger {

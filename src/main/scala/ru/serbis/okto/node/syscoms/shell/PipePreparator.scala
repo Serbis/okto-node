@@ -170,7 +170,7 @@ class PipePreparator(env: Env, testMode: Boolean) extends FSM[State, Data] with 
         val s = data.sys.commandsDef.get(headCommand.name)
         val u = data.usr.commandsDef.get(headCommand.name)
         val cmdDef = if (s.get.isDefined) s.get.get else u.get.get
-        env.runtime ! Runtime.Commands.Spawn(headCommand.name, headCommand.args, cmdDef, self)
+        env.runtime ! Runtime.Commands.Spawn(headCommand.name, headCommand.args, cmdDef, self, "shell")
         goto(ProcessesSpawning) using InProcessesSpawning(headCommand.name, headCommand.args)
       } else {
         logger.debug(s"Can not create pipe, some commands not found '${notFound.toSpacedString}'")

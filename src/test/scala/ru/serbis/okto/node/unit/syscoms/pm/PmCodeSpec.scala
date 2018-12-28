@@ -59,7 +59,7 @@ class PmCodeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
       probe.send(target1, PmCode.Commands.Exec)
       probe.expectMsg(Pm.Internals.Complete(41, "Script name contain restricted symbols"))
 
-      val target2 = system.actorOf(PmCode.props(Vector(".a"), env, stdIn.ref, stdOut.ref))
+      val target2 = system.actorOf(PmCode.props(Vector("..a"), env, stdIn.ref, stdOut.ref))
       probe.send(target2, PmCode.Commands.Exec)
       probe.expectMsg(Pm.Internals.Complete(41, "Script name contain restricted symbols"))
 

@@ -34,7 +34,7 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(ActorRef.noSender)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
       }
     }
 
@@ -50,8 +50,8 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(connection.ref)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         target ! ReactiveShellTunnel.Commands.Receive(serializer.toBinary(proto_messages.Action(0)).get)
         executor.expectMsg(Shell.Commands.Die)
@@ -68,8 +68,8 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(connection.ref)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         target ! ReactiveShellTunnel.Commands.Receive(serializer.toBinary(proto_messages.Action(1)).get)
         executor.expectMsg(Shell.Commands.KeepAlive)
@@ -85,9 +85,9 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(ActorRef.noSender)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
         target ! ReactiveShellTunnel.Commands.Receive(serializer.toBinary(proto_messages.Data(ByteString("abc").toProto)).get)
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         shellStdIn.expectMsg(Stream.Commands.WriteWrapped(ByteString("abc")))
       }
@@ -102,8 +102,8 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(ActorRef.noSender)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         target ! ReactiveShellTunnel.Commands.Receive(serializer.toBinary(proto_messages.Data(ByteString("abc").toProto)).get)
         shellStdIn.expectMsg(Stream.Commands.WriteWrapped(ByteString("abc")))
@@ -123,8 +123,8 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(ActorRef.noSender)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         target ! ReactiveShellTunnel.Commands.Receive(ByteString("abc"))
         target ! ReactiveShellTunnel.Commands.Receive(serializer.toBinary(proto_messages.Data(ByteString("abc").toProto)).get)
@@ -144,8 +144,8 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(connection.ref)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         target ! Stream.Responses.Data(ByteString("abc"))
         connection.expectMsg(BinaryMessage(serializer.toBinary(proto_messages.Data(ByteString("abc").toProto)).get))
@@ -168,8 +168,8 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(connection.ref)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellProcess.expectMsg(Process.Commands.Start)
         target ! ReactiveShellTunnel.Commands.Close
         shellStdIn.expectMsg(Stream.Commands.Write(ByteString(Array(EOF))))
@@ -188,9 +188,9 @@ class ReactiveShellTunnelSpec extends TestKit(ActorSystem("TestSystem")) with Im
 
         val target = system.actorOf(ReactiveShellTunnel.props(env))
         target ! ReactiveShellTunnel.Commands.Connected(connection.ref)
-        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
+        runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "tunnel"))
         target ! ReactiveShellTunnel.Commands.Close
-        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+        runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 0, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
         shellStdIn.expectMsg(Stream.Commands.Write(ByteString(Array(EOF))))
       }
     }

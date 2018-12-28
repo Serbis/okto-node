@@ -11,7 +11,9 @@ import ru.serbis.okto.node.reps.UsercomsRep.Responses.UserCommandDefinition
 import ru.serbis.okto.node.syscoms.{Echo, ReadAdc}
 import ru.serbis.okto.node.syscoms.shell.Shell
 import ru.serbis.okto.node.common.ReachTypes.ReachVector
+import ru.serbis.okto.node.runtime.app.AppCmdExecutor
 import ru.serbis.okto.node.syscoms.pm.Pm
+import ru.serbis.okto.node.syscoms.proc.Proc
 import ru.serbis.okto.node.syscoms.storage.Storage
 
 import scala.concurrent.duration._
@@ -47,7 +49,7 @@ object SpawnFsm {
 
     case object WaitingProcessCreation extends Data
 
-    case class WaitingScriptCode(cmd: String, args: Vector[String], initiator: ActorRef) extends Data
+    case class WaitingScriptCode(cmd: String, args: Vector[String], initiator: ActorRef, cmdString: String, subsystem: String) extends Data
 
     /** @param processDef created process definition */
     case class WaitingInjecting(processDef: ProcessConstructor.Responses.ProcessDef) extends Data
@@ -59,8 +61,9 @@ object SpawnFsm {
       * @param args command arguments
       * @param cmdDef command definition (if it is UserCommandDef, then it means running the application command on vm)
       * @param initiator initiator of command start (read shell sender, the one who sent ExecCmd to the shell actor)
+      * @param subsystem what initialize process spawn(shell, tunnel, boot and etc)
       */
-    case class Exec(cmd: String, args: Vector[String], cmdDef: Any, initiator: ActorRef)
+    case class Exec(cmd: String, args: Vector[String], cmdDef: Any, initiator: ActorRef, subsystem: String)
   }
 }
 
@@ -85,6 +88,8 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
       implicit val logQualifier = LogEntryQualifier("Idle_Exec")
       orig = sender()
 
+      val cmdString = s"${req.cmd} ${req.args.foldLeft("")((a, v) => s"$a$v ").dropRight(1)}"
+
       req.cmdDef match {
         case d: SystemCommandDefinition =>
           val executor = req.cmd match {
@@ -93,12 +98,13 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
             case "shell" => Some(context.system.actorOf(Shell.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "pm" => Some(context.system.actorOf(Pm.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "storage" => Some(context.system.actorOf(Storage.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
+            case "proc" => Some(context.system.actorOf(Proc.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case _ => None
           }
 
           if (executor.isDefined) {
             val processConstructor = context.system.actorOf(ProcessConstructor.props(env))
-            processConstructor ! ProcessConstructor.Commands.Exec(executor.get, req.initiator)
+            processConstructor ! ProcessConstructor.Commands.Exec(executor.get, req.initiator, cmdString, req.subsystem)
             goto(WaitProcessCreation) using WaitingProcessCreation
           } else {
             logger.error(s"System command '${req.cmd}' does not found")
@@ -108,7 +114,7 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
 
         case d: UserCommandDefinition =>
           env.scriptsRep ! ScriptsRep.Commands.GetScript(d.file)
-          goto(WaitScriptCode) using WaitingScriptCode(req.cmd, req.args, req.initiator)
+          goto(WaitScriptCode) using WaitingScriptCode(req.cmd, req.args, req.initiator, cmdString, req.subsystem)
 
         case _ => stop
       }
@@ -121,20 +127,20 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
   }
 
   when(WaitScriptCode, if (testMode) 0.5 second else 5 second) {
-    case Event(ScriptsRep.Responses.Script(code), WaitingScriptCode(cmd, args, initiator)) =>
+    case Event(ScriptsRep.Responses.Script(code), WaitingScriptCode(cmd, args, initiator, ccmd, subsystem)) =>
       implicit val logQualifier = LogEntryQualifier("WaitScriptCode_Script")
       val executor = context.system.actorOf(AppCmdExecutor.props(env, Vector(cmd, code) ++ args), s"Executor_${System.currentTimeMillis()}")
       val processConstructor = context.system.actorOf(ProcessConstructor.props(env))
-      processConstructor ! ProcessConstructor.Commands.Exec(executor, initiator)
+      processConstructor ! ProcessConstructor.Commands.Exec(executor, initiator, ccmd, subsystem)
       goto(WaitProcessCreation) using WaitingProcessCreation
 
-    case Event(ScriptsRep.Responses.ScriptNotFound, WaitingScriptCode(cmd, args, _)) =>
+    case Event(ScriptsRep.Responses.ScriptNotFound, WaitingScriptCode(cmd, args, _, _, _)) =>
       implicit val logQualifier = LogEntryQualifier("WaitScriptCode_ScriptNotFound")
       logger.error(s"Script code for command '$cmd ${args.toSpacedString}' can not be obtained") //TODO [5]  увеиличить информативность логов в части какая команда / какой процесс и т д
       orig ! Runtime.Responses.SpawnError
       stop
 
-    case Event(StateTimeout, WaitingScriptCode(cmd, args, _)) =>
+    case Event(StateTimeout, WaitingScriptCode(cmd, args, _, _, _)) =>
       implicit val logQualifier = LogEntryQualifier("WaitScriptCode_StateTimeout")
       logger.warning(s"Scripts repository for command '$cmd ${args.toSpacedString}' does not respond with expected timeout")
       orig ! Runtime.Responses.SpawnError
@@ -146,7 +152,7 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
   when(WaitProcessCreation, if (testMode) 1 second else 10 second) {
     case Event(req: ProcessConstructor.Responses.ProcessDef, WaitingProcessCreation) =>
       implicit val logQualifier = LogEntryQualifier("WaitProcessCreation_CreatedProcess")
-      env.runtime ! Runtime.Commands.Inject(req.ref, req.pid)
+      env.runtime ! Runtime.Commands.Inject(req)
       goto(WaitInjecting) using WaitingInjecting(req)
 
     case Event(ProcessConstructor.Responses.Error, WaitingProcessCreation) =>

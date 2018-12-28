@@ -20,6 +20,9 @@ import akka.stream.Attributes.InputBuffer
 import akka.stream.impl.{Buffer, QueueSink}
 import akka.stream.scaladsl.{FileIO, Sink, SinkQueueWithCancel, Source}
 import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler}
+import jdk.nashorn.internal.parser.Parser
+import jdk.nashorn.internal.runtime.{Context, ErrorManager}
+import jdk.nashorn.internal.runtime.options.Options
 import ru.serbis.okto.node.log.Logger.LogLevels
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
 
@@ -27,9 +30,28 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
+import scala.util.matching.Regex.Match
 
 
-class ScriptTerminated extends Throwable
+class Work extends Runnable {
+  var r: List[Int] = List.empty
+
+  override def run() = {
+    val x = (1 to Int.MaxValue).map(v => {
+      try {
+        Thread.sleep(1000)
+        v - 10
+      } catch {
+        case e: Exception =>
+          println("Interrupted")
+          v - 20
+      }
+    }) toList
+
+    r = x
+  }
+}
 
 object Exps extends StreamLogger {
   implicit val system = ActorSystem("my-system")
@@ -39,6 +61,15 @@ object Exps extends StreamLogger {
 
   initializeGlobalLogger(system, LogLevels.Info)
   logger.addDestination(system.actorOf(StdOutLogger.props, "StdOutLogger"))
+
+  val t = new Thread(new Work)
+  t.start()
+  t.interrupt()
+  Thread.sleep(3000)
+  t.interrupt()
+
+
+
 
   /*val engine = new ScriptEngineManager().getEngineByName("nashorn")
   val context = engine.getContext
@@ -65,7 +96,7 @@ object Exps extends StreamLogger {
   Thread.sleep(3000)
   engine.asInstanceOf[Invocable].invokeFunction("sig")*/
 
-  val file = new File("dist/node/storage/tefi").toPath
+  /*val file = new File("dist/node/storage/tefi").toPath
   Files.deleteIfExists(file)
   Files.createFile(file)
   Files.write(file, Array.fill(10000)("1".charAt(0).toByte), StandardOpenOption.APPEND)
@@ -75,7 +106,7 @@ object Exps extends StreamLogger {
   Files.write(file, Array.fill(10000)("5".charAt(0).toByte), StandardOpenOption.APPEND)
   Files.write(file, Array.fill(10000)("6".charAt(0).toByte), StandardOpenOption.APPEND)
   Files.write(file, Array.fill(10000)("7".charAt(0).toByte), StandardOpenOption.APPEND)
-  println("OK")
+  println("OK")*/
   //val storage = system.actorOf(StorageRep.props("/tmp", new RealFilesProxy))
   //storage ! StorageRep.Commands.WriteFragment("tf2", 0, 0, ByteString("X"))
 

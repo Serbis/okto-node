@@ -1,7 +1,7 @@
 package ru.serbis.okto.node.runtime.senv
 
 import akka.actor.ActorRef
-import ru.serbis.okto.node.runtime.AppCmdExecutor
+import ru.serbis.okto.node.runtime.app.AppCmdExecutor
 
 /** Object-container functions to manage the operation of the script
   *

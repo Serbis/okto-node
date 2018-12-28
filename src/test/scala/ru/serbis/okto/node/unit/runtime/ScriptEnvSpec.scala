@@ -5,7 +5,7 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
-import ru.serbis.okto.node.runtime.{AppCmdExecutor, Stream, StreamControls}
+import ru.serbis.okto.node.runtime.{Stream, StreamControls}
 import ru.serbis.okto.node.runtime.Stream.Commands._
 import ru.serbis.okto.node.runtime.Stream.Responses._
 import ru.serbis.okto.node.runtime.senv._

@@ -132,10 +132,10 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
           stash()
           println("Stashed")
         } else {
-          if (config.get.hasPath(s"$cmd")) {
+          if (config.get.hasPath(s"$cmd") || config.get.hasPath(s""""$cmd\"""")) {
             val nConf = config.get.root().asScala.foldLeft("")((a, v) => {
               if (v._1 != cmd)
-                s"$a${v._1} {\n  file = ${"\""}${v._2.asInstanceOf[ConfigObject].get("file").unwrapped()}${"\""}\n}\n"
+                s"$a${"\""}${v._1}${"\""} {\n  file = ${"\""}${v._2.asInstanceOf[ConfigObject].get("file").unwrapped()}${"\""}\n}\n"
               else
                 a
             })
@@ -174,7 +174,7 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
         } else {
             val inName = in.head
             val result = Try {
-              val definition = UserCommandDefinition(inName, config.get.getString(s"$inName.file"))
+              val definition = UserCommandDefinition(inName, config.get.getString(s"${"\""}$inName${"\""}.file"))
               logger.debug(s"System command definition $definition was read from the configuration")
               Some(definition)
             } recover {
@@ -220,7 +220,7 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
             Future {
               try {
                 if (testMode) Thread.sleep(2000)
-                Files.write(configFile.toPath, ByteString(s"${df.name} {\n  file = ${"\""}${df.file}${"\""}\n}\n").toArray, StandardOpenOption.APPEND)
+                Files.write(configFile.toPath, ByteString(s"${"\""}${df.name}${"\""} {\n  file = ${"\""}${df.file}${"\""}\n}\n").toArray, StandardOpenOption.APPEND)
                 orig ! Created
                 fileOperation = false
                 logger.info(s"Created new definition for command '${df.name}'")

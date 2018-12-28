@@ -35,7 +35,7 @@ class ProcessConstructorSpec extends TestKit(ActorSystem("TestSystem")) with Imp
       val env = Env(runtime = runtime.ref)
 
       val target = system.actorOf(ProcessConstructor.props(env))
-      probe.send(target, ProcessConstructor.Commands.Exec(system.actorOf(Props(new FictionExecutor)), stdOutReceiver.ref))
+      probe.send(target, ProcessConstructor.Commands.Exec(system.actorOf(Props(new FictionExecutor)), stdOutReceiver.ref, "cmd", "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       runtime.reply(Runtime.Responses.Pid(1000))
       val process = probe.expectMsgType[ProcessConstructor.Responses.ProcessDef]

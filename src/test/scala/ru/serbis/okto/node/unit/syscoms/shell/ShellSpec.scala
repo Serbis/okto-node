@@ -153,7 +153,7 @@ class ShellSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
         shellStdIn.send(target, Stream.Responses.Data(ByteString("a | b | c") ++ ByteString(Array(EOI))))
         pipePreparator.expectMsg(PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
         pipePreparator.reply(PipePreparator.Responses.CommandsNotFound(Set("a", "c")))
-        shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(s"Commands not found - a, c") ++ ByteString(Array(EOI, EOP, 0.toByte))))
+        shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(s"Commands not found - a, c") ++ ByteString(Array(EOI, EOP, 16.toByte))))
         shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(Array(PROMPT))))
       }
 
@@ -173,7 +173,7 @@ class ShellSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
         shellStdIn.send(target, Stream.Responses.Data(ByteString("a | b | c") ++ ByteString(Array(EOI))))
         pipePreparator.expectMsg(PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
         pipePreparator.reply(PipePreparator.Responses.InternalError)
-        shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(s"Unable to execute statements due to internal error 2") ++ ByteString(Array(EOI, EOP, 0.toByte))))
+        shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(s"Unable to execute statements due to internal error 2") ++ ByteString(Array(EOI, EOP, 17.toByte))))
         shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(Array(PROMPT))))
       }
 

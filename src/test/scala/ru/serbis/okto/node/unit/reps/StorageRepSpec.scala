@@ -297,6 +297,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
       probe.send(target, StorageRep.Commands.Append("file", ByteString(data)))
 
       val fp = new File("/dist/storage/file").toPath
+      filesProbe.expectMsg(TestFilesProxy.Actions.CreateDirectories(fp.getParent))
+      filesProbe.reply(fp)
       filesProbe.expectMsg(TestFilesProxy.Actions.Write(fp, ByteString(data), StandardOpenOption.CREATE, StandardOpenOption.APPEND))
       filesProbe.reply(fp)
 
@@ -316,6 +318,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
       probe.send(target, StorageRep.Commands.Append("file", ByteString(data)))
 
       val fp = new File("/dist/storage/file").toPath
+      filesProbe.expectMsg(TestFilesProxy.Actions.CreateDirectories(fp.getParent))
+      filesProbe.reply(fp)
       filesProbe.expectMsg(TestFilesProxy.Actions.Write(fp, ByteString(data), StandardOpenOption.CREATE, StandardOpenOption.APPEND))
       filesProbe.reply(TestFilesProxy.Predicts.Throw(new Exception("extext")))
 
@@ -351,6 +355,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
       probe.send(target, StorageRep.Commands.ReWrite("file", ByteString(data)))
 
       val fp = new File("/dist/storage/file").toPath
+      filesProbe.expectMsg(TestFilesProxy.Actions.CreateDirectories(fp.getParent))
+      filesProbe.reply(fp)
       filesProbe.expectMsg(TestFilesProxy.Actions.Write(fp, ByteString(data), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))
       filesProbe.reply(fp)
 
@@ -370,6 +376,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
       probe.send(target, StorageRep.Commands.ReWrite("file", ByteString(data)))
 
       val fp = new File("/dist/storage/file").toPath
+      filesProbe.expectMsg(TestFilesProxy.Actions.CreateDirectories(fp.getParent))
+      filesProbe.reply(fp)
       filesProbe.expectMsg(TestFilesProxy.Actions.Write(fp, ByteString(data), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))
       filesProbe.reply(TestFilesProxy.Predicts.Throw(new Exception("extext")))
 
@@ -454,13 +462,13 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
 
       initTarget2(filesProbe)
 
-      probe.send(target, StorageRep.Commands.GetInfo(List.empty))
+      probe.send(target, StorageRep.Commands.GetInfo(List.empty, "dir"))
 
-      val path1 = new File("dist/storage/a").toPath.toAbsolutePath
-      val path2 = new File("dist/storage/b").toPath.toAbsolutePath
-      val path3 = new File("dist/storage/c").toPath.toAbsolutePath
+      val path1 = new File("dist/storage/dir/a").toPath.toAbsolutePath
+      val path2 = new File("dist/storage/dir/b").toPath.toAbsolutePath
+      val path3 = new File("dist/storage/dir/c").toPath.toAbsolutePath
 
-      val fp = new File(new File("dist/storage").toPath.toAbsolutePath.toString).toPath
+      val fp = new File(new File("dist/storage/dir").toPath.toAbsolutePath.toString).toPath
       filesProbe.expectMsg(TestFilesProxy.Actions.List(fp))
       filesProbe.reply(util.Arrays.stream(Array(path1, path2, path3)))
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path1, "size,lastModifiedTime,creationTime"))
@@ -469,23 +477,28 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
         "lastModifiedTime" -> FileTime.from(1000, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2000, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path1))
+      filesProbe.reply(true)
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path2, "size,lastModifiedTime,creationTime"))
       filesProbe.reply(Map(
         "size" -> 101L,
         "lastModifiedTime" -> FileTime.from(1001, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2001, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path2))
+      filesProbe.reply(false)
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path3, "size,lastModifiedTime,creationTime"))
       filesProbe.reply(Map(
         "size" -> 102L,
         "lastModifiedTime" -> FileTime.from(1002, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2002, TimeUnit.SECONDS)
       ))
-
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path3))
+      filesProbe.reply(false)
       probe.expectMsg(StorageRep.Responses.FilesInfo(Map(
-        "a" -> Right(FileInfo(100, 2000000, 1000000)),
-        "b" -> Right(FileInfo(101, 2001000, 1001000)),
-        "c" -> Right(FileInfo(102, 2002000, 1002000))
+        "a" -> Right(FileInfo(true, 100, 2000000, 1000000)),
+        "b" -> Right(FileInfo(false, 101, 2001000, 1001000)),
+        "c" -> Right(FileInfo(false, 102, 2002000, 1002000))
       )))
     }
 
@@ -498,11 +511,11 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
 
       initTarget2(filesProbe)
 
-      probe.send(target, StorageRep.Commands.GetInfo(List("a", "b", "c")))
+      probe.send(target, StorageRep.Commands.GetInfo(List("a", "b", "c"), "dir"))
 
-      val path1 = new File("dist/storage/a").toPath.toAbsolutePath
-      val path2 = new File("dist/storage/b").toPath.toAbsolutePath
-      val path3 = new File("dist/storage/c").toPath.toAbsolutePath
+      val path1 = new File("dist/storage/dir/a").toPath.toAbsolutePath
+      val path2 = new File("dist/storage/dir/b").toPath.toAbsolutePath
+      val path3 = new File("dist/storage/dir/c").toPath.toAbsolutePath
 
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path1, "size,lastModifiedTime,creationTime"))
       filesProbe.reply(Map(
@@ -510,23 +523,29 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
         "lastModifiedTime" -> FileTime.from(1000, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2000, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path1))
+      filesProbe.reply(true)
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path2, "size,lastModifiedTime,creationTime"))
       filesProbe.reply(Map(
         "size" -> 101L,
         "lastModifiedTime" -> FileTime.from(1001, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2001, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path2))
+      filesProbe.reply(false)
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path3, "size,lastModifiedTime,creationTime"))
       filesProbe.reply(Map(
         "size" -> 102L,
         "lastModifiedTime" -> FileTime.from(1002, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2002, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path3))
+      filesProbe.reply(false)
 
       probe.expectMsg(StorageRep.Responses.FilesInfo(Map(
-        "a" -> Right(FileInfo(100, 2000000, 1000000)),
-        "b" -> Right(FileInfo(101, 2001000, 1001000)),
-        "c" -> Right(FileInfo(102, 2002000, 1002000))
+        "a" -> Right(FileInfo(true, 100, 2000000, 1000000)),
+        "b" -> Right(FileInfo(false, 101, 2001000, 1001000)),
+        "c" -> Right(FileInfo(false, 102, 2002000, 1002000))
       )))
     }
 
@@ -539,7 +558,7 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
 
       initTarget2(filesProbe)
 
-      probe.send(target, StorageRep.Commands.GetInfo(List("a", "b", "c")))
+      probe.send(target, StorageRep.Commands.GetInfo(List("a", "b", "c"), ""))
 
       val path1 = new File("dist/storage/a").toPath.toAbsolutePath
       val path2 = new File("dist/storage/b").toPath.toAbsolutePath
@@ -551,6 +570,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
         "lastModifiedTime" -> FileTime.from(1000, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2000, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path1))
+      filesProbe.reply(false)
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path2, "size,lastModifiedTime,creationTime"))
       val tr = new Throwable("x")
       filesProbe.reply(TestFilesProxy.Predicts.Throw(tr))
@@ -560,11 +581,13 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
         "lastModifiedTime" -> FileTime.from(1002, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2002, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path3))
+      filesProbe.reply(false)
 
       probe.expectMsg(StorageRep.Responses.FilesInfo(Map(
-        "a" -> Right(FileInfo(100, 2000000, 1000000)),
+        "a" -> Right(FileInfo(false, 100, 2000000, 1000000)),
         "b" -> Left(tr),
-        "c" -> Right(FileInfo(102, 2002000, 1002000))
+        "c" -> Right(FileInfo(false, 102, 2002000, 1002000))
       )))
     }
 
@@ -577,7 +600,7 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
 
       initTarget2(filesProbe)
 
-      probe.send(target, StorageRep.Commands.GetInfo(List("a", "../b", "c")))
+      probe.send(target, StorageRep.Commands.GetInfo(List("a", "../b", "c"), ""))
 
       val path1 = new File("dist/storage/a").toPath.toAbsolutePath
       val path3 = new File("dist/storage/c").toPath.toAbsolutePath
@@ -588,17 +611,21 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
         "lastModifiedTime" -> FileTime.from(1000, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2000, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path1))
+      filesProbe.reply(false)
       filesProbe.expectMsg(TestFilesProxy.Actions.ReadAttributes(path3, "size,lastModifiedTime,creationTime"))
       filesProbe.reply(Map(
         "size" -> 102L,
         "lastModifiedTime" -> FileTime.from(1002, TimeUnit.SECONDS),
         "creationTime" -> FileTime.from(2002, TimeUnit.SECONDS)
       ))
+      filesProbe.expectMsg(TestFilesProxy.Actions.IsDirectory(path3))
+      filesProbe.reply(false)
 
       val r = probe.expectMsgType[StorageRep.Responses.FilesInfo]
-      r.info("a") shouldEqual Right(FileInfo(100, 2000000, 1000000))
+      r.info("a") shouldEqual Right(FileInfo(false, 100, 2000000, 1000000))
       r.info("b").left.get.getMessage shouldEqual "Malformed path"
-      r.info("c") shouldEqual Right(FileInfo(102, 2002000, 1002000))
+      r.info("c") shouldEqual Right(FileInfo(false, 102, 2002000, 1002000))
 
     }
 
@@ -611,7 +638,7 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
 
       initTarget2(filesProbe)
 
-      probe.send(target, StorageRep.Commands.GetInfo(List.empty))
+      probe.send(target, StorageRep.Commands.GetInfo(List.empty, ""))
 
       val fp = new File(new File("dist/storage").toPath.toAbsolutePath.toString).toPath
       filesProbe.expectMsg(TestFilesProxy.Actions.List(fp))
@@ -636,6 +663,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
       probe.send(target, StorageRep.Commands.WriteFragment("file", 5, 10, data))
 
       val fp = new File("/dist/storage/file").toPath
+      filesProbe.expectMsg(TestFilesProxy.Actions.CreateDirectories(fp.getParent))
+      filesProbe.reply(fp)
       filesProbe.expectMsg(TestFilesProxy.Actions.Exists(fp))
       filesProbe.reply(false)
       filesProbe.expectMsg(TestFilesProxy.Actions.CreateFile(fp))
@@ -687,6 +716,8 @@ class StorageRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSen
       probe.send(target, StorageRep.Commands.WriteFragment("file", 5, 10, data))
 
       val fp = new File("/dist/storage/file").toPath
+      filesProbe.expectMsg(TestFilesProxy.Actions.CreateDirectories(fp.getParent))
+      filesProbe.reply(fp)
       filesProbe.expectMsg(TestFilesProxy.Actions.Exists(fp))
       filesProbe.reply(TestFilesProxy.Predicts.Throw(new Exception("extext")))
 

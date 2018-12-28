@@ -124,7 +124,7 @@ class PmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
       val target = system.actorOf(Pm.props(Env(), Vector.empty, exSystem))
 
       probe.send(target, CommandsUnion.Commands.Run(process.ref,  Map(0 -> stdOut.ref, 1 -> stdIn.ref)))
-      stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString("Not enough arguments").eoi.eof.exit(1)))
+      stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString("Not enough arguments").eoi.eof.exit(2)))
     }
   }
 }

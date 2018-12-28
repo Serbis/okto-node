@@ -5,8 +5,8 @@ import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import ru.serbis.okto.node.hardware.SerialBridge
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
-import ru.serbis.okto.node.runtime.AppCmdExecutor
-import ru.serbis.okto.node.runtime.senv.{VBridge, VRuntime}
+import ru.serbis.okto.node.runtime.app.AppCmdExecutor
+import ru.serbis.okto.node.runtime.senv.VBridge
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

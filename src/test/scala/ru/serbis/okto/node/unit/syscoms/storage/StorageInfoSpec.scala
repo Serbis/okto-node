@@ -20,22 +20,40 @@ class StorageInfoSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
 
 
   "StorageInfo" must {
-    "Process positive test" in {
+    "Process positive test -> list with -b" in {
       val probe = TestProbe()
       val storageRep = TestProbe()
       val stdOut = TestProbe()
       val stdIn = TestProbe()
       val env = Env(storageRep = storageRep.ref)
-      val target = system.actorOf(StorageInfo.props(Vector("a", "b", "c"), env, stdIn.ref, stdOut.ref))
+      val target = system.actorOf(StorageInfo.props(Vector("-b", "dir", "-f", "a/b/c"), env, stdIn.ref, stdOut.ref))
 
       probe.send(target, StorageInfo.Commands.Exec)
-      storageRep.expectMsg(StorageRep.Commands.GetInfo(List("a", "b", "c")))
+      storageRep.expectMsg(StorageRep.Commands.GetInfo(List("a", "b", "c"), "dir"))
       storageRep.reply(StorageRep.Responses.FilesInfo(Map(
-        "a" -> Right(FileInfo(100, 1000000, 2000000)),
+        "a" -> Right(FileInfo(true, 100, 1000000, 2000000)),
         "b" -> Left(new Throwable("x")),
-        "c" -> Right(FileInfo(102, 1002000, 2002000))
+        "c" -> Right(FileInfo(false, 102, 1002000, 2002000))
       )))
-      probe.expectMsg(Storage.Internals.Complete(0, "{\n\t\"a\" : {\n\t\t\"size\" : 100,\n\t\t\"created\" : 1000000,\n\t\t\"modified\" : 2000000\n\t},\n\t\"b\" : {\n\t\t\"error\" : \"java.lang.Throwable: x\"\n\t},\n\t\"c\" : {\n\t\t\"size\" : 102,\n\t\t\"created\" : 1002000,\n\t\t\"modified\" : 2002000\n\t}\n}"))
+      probe.expectMsg(Storage.Internals.Complete(0, "{\n\t\"a\" : {\n\t\t\"size\" : 100,\n\t\t\"created\" : 1000000,\n\t\t\"isDir\" : true,\n\t\t\"modified\" : 2000000\n\t},\n\t\"b\" : {\n\t\t\"error\" : \"java.lang.Throwable: x\"\n\t},\n\t\"c\" : {\n\t\t\"size\" : 102,\n\t\t\"created\" : 1002000,\n\t\t\"isDir\" : false,\n\t\t\"modified\" : 2002000\n\t}\n}"))
+    }
+
+    "Process positive test -> no list without -b" in {
+      val probe = TestProbe()
+      val storageRep = TestProbe()
+      val stdOut = TestProbe()
+      val stdIn = TestProbe()
+      val env = Env(storageRep = storageRep.ref)
+      val target = system.actorOf(StorageInfo.props(Vector.empty, env, stdIn.ref, stdOut.ref))
+
+      probe.send(target, StorageInfo.Commands.Exec)
+      storageRep.expectMsg(StorageRep.Commands.GetInfo(List.empty, ""))
+      storageRep.reply(StorageRep.Responses.FilesInfo(Map(
+        "a" -> Right(FileInfo(true, 100, 1000000, 2000000)),
+        "b" -> Left(new Throwable("x")),
+        "c" -> Right(FileInfo(false, 102, 1002000, 2002000))
+      )))
+      probe.expectMsg(Storage.Internals.Complete(0, "{\n\t\"a\" : {\n\t\t\"size\" : 100,\n\t\t\"created\" : 1000000,\n\t\t\"isDir\" : true,\n\t\t\"modified\" : 2000000\n\t},\n\t\"b\" : {\n\t\t\"error\" : \"java.lang.Throwable: x\"\n\t},\n\t\"c\" : {\n\t\t\"size\" : 102,\n\t\t\"created\" : 1002000,\n\t\t\"isDir\" : false,\n\t\t\"modified\" : 2002000\n\t}\n}"))
     }
 
 
@@ -45,10 +63,10 @@ class StorageInfoSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
       val stdOut = TestProbe()
       val stdIn = TestProbe()
       val env = Env(storageRep = storageRep.ref)
-      val target = system.actorOf(StorageInfo.props(Vector("a", "b", "c"), env, stdIn.ref, stdOut.ref, testMode = true))
+      val target = system.actorOf(StorageInfo.props(Vector("-b", "dir", "-f", "a/b/c"), env, stdIn.ref, stdOut.ref, testMode = true))
 
       probe.send(target, StorageInfo.Commands.Exec)
-      storageRep.expectMsg(StorageRep.Commands.GetInfo(List("a", "b", "c")))
+      storageRep.expectMsg(StorageRep.Commands.GetInfo(List("a", "b", "c"), "dir"))
       probe.expectMsg(Storage.Internals.Complete(11, "Internal error type 0"))
     }
 
@@ -58,10 +76,10 @@ class StorageInfoSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
       val stdOut = TestProbe()
       val stdIn = TestProbe()
       val env = Env(storageRep = storageRep.ref)
-      val target = system.actorOf(StorageInfo.props(Vector("a", "b", "c"), env, stdIn.ref, stdOut.ref, testMode = true))
+      val target = system.actorOf(StorageInfo.props(Vector("-b", "dir", "-f", "a/b/c"), env, stdIn.ref, stdOut.ref, testMode = true))
 
       probe.send(target, StorageInfo.Commands.Exec)
-      storageRep.expectMsg(StorageRep.Commands.GetInfo(List("a", "b", "c")))
+      storageRep.expectMsg(StorageRep.Commands.GetInfo(List("a", "b", "c"), "dir"))
       storageRep.reply(StorageRep.Responses.OperationError("ex"))
       probe.expectMsg(Storage.Internals.Complete(12, s"Unable to read storage: ex"))
     }

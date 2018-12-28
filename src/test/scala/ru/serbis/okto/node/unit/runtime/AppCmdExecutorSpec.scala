@@ -1,7 +1,6 @@
 package ru.serbis.okto.node.unit.runtime
 
 import javax.script.ScriptEngineManager
-
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
@@ -10,7 +9,9 @@ import ru.serbis.okto.node.common.{CommandsUnion, Env}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
 import ru.serbis.okto.node.reps.SyscomsRep.Responses.SystemCommandDefinition
 import ru.serbis.okto.node.runtime.StreamControls.EOF
-import ru.serbis.okto.node.runtime.{AppCmdExecutor, Process, ProcessConstructor, Runtime, Stream, StreamControls, VmPool}
+import ru.serbis.okto.node.runtime.app.AppCmdExecutor
+import ru.serbis.okto.node.runtime.{Process, ProcessConstructor, Runtime, Stream, StreamControls, VmPool}
+import ru.serbis.okto.node.common.ReachTypes.ReachByteString
 
 class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll with StreamLogger {
@@ -56,7 +57,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       probe.send(target, CommandsUnion.Commands.Run(process.ref, Map(0 -> stream0.ref, 1 -> stream1.ref)))
       vmPool.expectMsg(VmPool.Commands.Reserve)
       vmPool.reply(VmPool.Responses.PoolOverflow)
-      stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString("Unable to reserve vm runtime") ++ ByteString(Array(EOF))))
+      stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString("Unable to reserve vm runtime").eof.exit(1)))
       process.expectMsg(CommandsUnion.Responses.ExecutorFinished(1))
     }
 
@@ -71,7 +72,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val target = system.actorOf(AppCmdExecutor.props(env, Vector("cmd", "", "abc"), testMode = true))
 
       probe.send(target, CommandsUnion.Commands.Run(process.ref, Map(0 -> stream0.ref, 1 -> stream1.ref)))
-      stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString("Internal error 1") ++ ByteString(Array(EOF))))
+      stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString("Internal error 1").eof.exit(2)))
       process.expectMsg(CommandsUnion.Responses.ExecutorFinished(2))
     }
 
@@ -94,7 +95,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       vmPool.expectMsg(VmPool.Commands.Reserve)
       vmPool.reply(VmPool.Responses.VmInstance(new ScriptEngineManager().getEngineByName("nashorn")))
       val msg = stream0.expectMsgType[Stream.Commands.WriteWrapped].data.utf8String
-      stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString(Array(StreamControls.EOF))))
+      stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString().eof.exit(3)))
       process.expectMsg(CommandsUnion.Responses.ExecutorFinished(3))
     }
 
@@ -133,7 +134,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
         vmPool.reply(VmPool.Responses.VmInstance(vm))
         probe.send(target, AppCmdExecutor.Commands.Exit(10))
         vmPool.expectMsg(VmPool.Commands.Free(vm))
-        stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString(Array(StreamControls.EOF))))
+        stream0.expectMsg(Stream.Commands.WriteWrapped(ByteString().eof.exit(10)))
         process.expectMsg(CommandsUnion.Responses.ExecutorFinished(10))
       }
 
@@ -159,8 +160,8 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
           vmPool.reply(VmPool.Responses.VmInstance(new ScriptEngineManager().getEngineByName("nashorn")))
 
           probe.send(target, AppCmdExecutor.Commands.CreateLocalShell())
-          runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
-          runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 1000, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref)))
+          runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "script"))
+          runtime.reply(ProcessConstructor.Responses.ProcessDef(shellProcess.ref, executor.ref, 1000, Map(0 -> shellStdOut.ref, 1 -> shellStdIn.ref), 0, "", "", ("root", 0)))
           shellProcess.expectMsg(Process.Commands.Start)
           probe.expectMsg(AppCmdExecutor.Responses.ShellDefinition(shellProcess.ref, shellStdIn.ref, shellStdOut.ref))
         }
@@ -182,7 +183,7 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
           vmPool.reply(VmPool.Responses.VmInstance(new ScriptEngineManager().getEngineByName("nashorn")))
 
           probe.send(target, AppCmdExecutor.Commands.CreateLocalShell())
-          runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target))
+          runtime.expectMsg(Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), target, "script"))
           runtime.reply(Runtime.Responses.SpawnError)
           probe.expectMsg(AppCmdExecutor.Responses.ShellCreationError)
         }
@@ -207,8 +208,6 @@ class AppCmdExecutorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
           probe.expectMsg(AppCmdExecutor.Responses.ShellCreationError)
         }
       }
-
-
     }
   }
 }

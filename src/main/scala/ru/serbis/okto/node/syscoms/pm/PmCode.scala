@@ -64,12 +64,13 @@ class PmCode(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Actor
     case Event(Exec, _) =>
       orig = sender()
 
+      Long
       val name = nextArgs.headOption
       if (name.isEmpty) {
         orig ! Pm.Internals.Complete(40, "Command name is not presented")
         stop
       } else {
-        if (name.get.exists(v => v == '.' || v == '/' || v == ' ')) {
+        if (name.get.contains("..") || name.get.contains("/") || name.get.contains(" ")) {
           orig ! Pm.Internals.Complete(41, "Script name contain restricted symbols")
           stop
         } else {

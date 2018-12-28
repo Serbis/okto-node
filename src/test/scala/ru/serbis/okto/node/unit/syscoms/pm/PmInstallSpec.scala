@@ -66,7 +66,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target1, PmInstall.Commands.Exec)
       probe.expectMsg(Pm.Internals.Complete(11, "Script name contain some restricted symbols"))
 
-      val target2 = system.actorOf(PmInstall.props(Vector("-n", ".a"), env, stdIn.ref, stdOut.ref))
+      val target2 = system.actorOf(PmInstall.props(Vector("-n", "..a"), env, stdIn.ref, stdOut.ref))
       probe.send(target2, PmInstall.Commands.Exec)
       probe.expectMsg(Pm.Internals.Complete(11, "Script name contain some restricted symbols"))
 

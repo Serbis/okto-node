@@ -2,7 +2,7 @@ package ru.serbis.okto.node.runtime.senv
 
 import akka.actor.ActorRef
 import akka.util.ByteString
-import ru.serbis.okto.node.runtime.{AppCmdExecutor, StreamControls, Stream}
+import ru.serbis.okto.node.runtime.{StreamControls, Stream}
 
 /** The class to interact with the standard output of the program
   *

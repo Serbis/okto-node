@@ -3,6 +3,7 @@ package ru.serbis.okto.node.syscoms.storage
 import akka.actor.{ActorRef, FSM, Props}
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.common.FsmDefaults.{Data, State}
+import ru.serbis.okto.node.common.NodeUtils.getOptions
 import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.StreamLogger
 import ru.serbis.okto.node.reps.{ScriptsRep, StorageRep}
@@ -61,7 +62,12 @@ class StorageInfo(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: 
     case Event(Exec, _) =>
       orig = sender()
 
-      env.storageRep ! StorageRep.Commands.GetInfo(nextArgs.toList)
+      val options = getOptions(nextArgs)
+
+      val base = if (options.contains("-b")) options("-b") else ""
+      val files = if (options.contains("-f")) options("-f").split("/").toList else List.empty
+
+      env.storageRep ! StorageRep.Commands.GetInfo(files, base)
       goto(WaitFilesInfo) using InWaitFilesInfo
 
     //NOT TESTABLE
@@ -81,7 +87,7 @@ class StorageInfo(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: 
         info.foldLeft("") {(a, m) =>
           if (m._2.isRight) {
             val i = m._2.right.get
-            s"$a\t$p${m._1}$p : {\n\t\t${p}size$p : ${i.size},\n\t\t${p}created$p : ${i.created},\n\t\t${p}modified$p : ${i.modified}\n\t},\n"
+            s"$a\t$p${m._1}$p : {\n\t\t${p}size$p : ${i.size},\n\t\t${p}created$p : ${i.created},\n\t\t${p}isDir$p : ${i.dir},\n\t\t${p}modified$p : ${i.modified}\n\t},\n"
           } else {
             s"$a\t$p${m._1}$p : {\n\t\t${p}error$p : $p${m._2.left.get.getClass.getName}: ${m._2.left.get.getMessage}$p\n\t},\n"
           }

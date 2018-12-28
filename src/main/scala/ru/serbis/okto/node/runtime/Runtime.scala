@@ -6,6 +6,7 @@ import akka.actor.{Actor, ActorRef, Props}
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.StreamLogger
+import ru.serbis.okto.node.runtime.ProcessConstructor.Responses.ProcessDef
 
 import scala.collection.mutable
 
@@ -24,15 +25,16 @@ object Runtime {
       * @param args command arguments
       * @param cmdDef command configuration object (command definition in config)
       * @param initiator command initiator (read StdOut receiver)
+      * @param subsystem what initialize process spawn(shell, tunnel, boot and etc)
       */
-    case class Spawn(cmd: String, args: Vector[String], cmdDef: Any, initiator: ActorRef)
+    case class Spawn(cmd: String, args: Vector[String], cmdDef: Any, initiator: ActorRef, subsystem: String)
 
-    /** Adds a process reference to the pool by its identifier and responds with the Injected message. The process identifier
+    /** Adds a process def to the pool by its identifier and responds with the Injected message. The process identifier
       * must be reserved beforehand through the ReservePid message. Otherwise, this request will be answered by PidNotReserved
       *
-      * @param process process actor reference
-      * @param pid reserved process identifier */
-    case class Inject(process: ActorRef, pid: Int)
+      * @param procDef process definition
+      */
+    case class Inject(procDef: ProcessDef)
 
     /** Remove precess from pool by it's identifier. Respond with the Process message, containing the removed process reference.
       * If precess with passed id does not reserved, respond with ProcessNotRegistered message.
@@ -47,6 +49,20 @@ object Runtime {
 
     /** Reserve new free process id. Responds with a Pid message containing a reserved process identifier */
     case object ReservePid
+
+    /** Return definitions list of the all run processes. Respond with ProcessesDefs message
+      *
+      * @param pids process identifiers. If this param is None, all defs will be returned
+      */
+    case class GetProcessesDefs(pids: Option[List[Int]])
+
+    /** Send signal to the specified process executor. Signal is the CmdExecutor.ControlMessages.Signal message Respond with
+      * SignalSent if success or ProcessNotRegistered if process with the specified pid does not exist
+      *
+      * @param pid process identified
+      * @param signal signal code
+      */
+    case class SendSignal(pid: Int, signal: Int)
   }
 
   object Responses {
@@ -74,6 +90,11 @@ object Runtime {
     /** Attempting to perform an operation with a non-existent pid */
     case object PidNotReserved
 
+    /** Processes definitions */
+    case class ProcessesDefs(defs: List[ProcessDef])
+
+    /** Success signal sending operation */
+    case object SignalSent
   }
 }
 
@@ -91,7 +112,10 @@ class Runtime(env2: Env) extends Actor with StreamLogger {
   logger.info("Runtime actor is initialized")
 
   /** Process pool */
-  val procPool = mutable.HashMap.empty[Int, Option[ActorRef]]
+  val procPool = mutable.HashMap.empty[Int, Option[ProcessDef]]
+
+  /** Processes id's counter*/
+  var pidCounter = 0
 
   override def receive: Receive = {
 
@@ -100,7 +124,9 @@ class Runtime(env2: Env) extends Actor with StreamLogger {
       implicit val logQualifier = LogEntryQualifier("ReservePid")
       logger.debug(s"Requested pid reservation from '${sender().path}'")
       def inject: Int = {
-        val pid = UUID.randomUUID().hashCode()
+        if (pidCounter == Int.MaxValue) pidCounter = 1
+        else pidCounter = pidCounter + 1
+        val pid = pidCounter
         if (procPool.contains(pid)) {
           inject
         } else {
@@ -116,10 +142,10 @@ class Runtime(env2: Env) extends Actor with StreamLogger {
     case GetProcess(pid) =>
       implicit val logQualifier = LogEntryQualifier("GetProcess")
       logger.debug(s"Requested process reference for pid '$pid' from '${sender().path}'")
-      val process = procPool.get(pid)
-      if (process.isDefined) {
-        logger.debug(s"Returned ${ if (process.get.isDefined) s"fully process reference '${process.get.get.path}'" else "empty process reference" } ")
-        sender() ! Process(process.get)
+      val procDef = procPool.get(pid)
+      if (procDef.isDefined) {
+        logger.debug(s"Returned ${ if (procDef.get.isDefined) s"fully process reference '${procDef.get.map(v => v.ref.path)}'" else "empty process reference" } ")
+        sender() ! Process(procDef.get.map(v => v.ref))
       } else {
         logger.debug("Requested pid is not registered")
         sender() ! ProcessNotRegistered
@@ -129,24 +155,24 @@ class Runtime(env2: Env) extends Actor with StreamLogger {
     case RemoveProcess(pid) =>
       implicit val logQualifier = LogEntryQualifier("RemoveProcess")
       logger.debug(s"Requested process removing for pid '$pid' from '${sender().path}'")
-      val process = procPool.get(pid)
-      if (process.isDefined) {
+      val procDef = procPool.get(pid)
+      if (procDef.isDefined) {
         procPool -= pid
-        logger.debug(s"${ if (process.get.isDefined) "Fully" else "Empty" } process definition was removed from pool")
-        sender() ! Process(process.get)
+        logger.debug(s"${ if (procDef.get.isDefined) "Fully" else "Empty" } process definition was removed from pool")
+        sender() ! Process(procDef.get.map(v => v.ref))
       } else {
         logger.debug("Requested pid is not registered. Nothing to remove")
         sender() ! ProcessNotRegistered
       }
 
     /** see message description */
-    case Inject(ref, pid) =>
+    case Inject(procDef) =>
       implicit val logQualifier = LogEntryQualifier("Inject")
-      logger.debug(s"Requested process injecting '${ref.path}' for pid '$pid' from '${sender().path}'")
-      val process = procPool.get(pid)
-      if (process.isDefined) {
-        procPool(pid) = Some(ref)
-        logger.debug(s"Injected process reference '${ref.path} to pid '$pid'")
+      logger.debug(s"Requested process injecting '${procDef.ref.path}' for pid '${procDef.pid}' from '${sender().path}'")
+      val pd = procPool.get(procDef.pid)
+      if (pd.isDefined) {
+        procPool(procDef.pid) = Some(procDef)
+        logger.debug(s"Injected process reference '${procDef.ref.path} to pid '${procDef.pid}'")
         sender() ! Injected
       } else {
         logger.warning("Requested pid is not reserved")
@@ -154,11 +180,45 @@ class Runtime(env2: Env) extends Actor with StreamLogger {
       }
 
     /** see message description */
-    case Spawn(cmd, args, cmdDef, initiator) =>
-      implicit val logQualifier = LogEntryQualifier("Inject")
+    case Spawn(cmd, args, cmdDef, initiator, subsystem) =>
+      implicit val logQualifier = LogEntryQualifier("Spawn")
       logger.debug(s"""Requested process spawning for command '$cmd ${args.foldLeft("")((a, v) => a + s" $v")}' from '${sender().path}'""")
       val fsm = context.system.actorOf(SpawnFsm.props(env.copy(runtime = self)))
       logger.debug(s"Spawn procedure is running for command '$cmd ${args.foldLeft("")((a, v) => a + s" $v")}'")
-      fsm.tell(SpawnFsm.Commands.Exec(cmd, args, cmdDef, initiator), sender())
+      fsm.tell(SpawnFsm.Commands.Exec(cmd, args, cmdDef, initiator, subsystem), sender())
+
+    /** see message description */
+    case GetProcessesDefs(pids) =>
+      implicit val logQualifier = LogEntryQualifier("GetProcessesDefs")
+      logger.debug(s"Requested processes definition list from actor '${sender().path}'")
+      sender() ! ProcessesDefs(procPool.filter(v => {
+        if (pids.isDefined) {
+          val b = pids.get.contains(v._1) && v._2.isDefined
+          println(b)
+          b
+        } else {
+          v._2.isDefined
+        }
+      }).map(v => {
+        v._2.get
+      }).toList)
+
+    /** see message description */
+    case SendSignal(pid, signal) =>
+      implicit val logQualifier = LogEntryQualifier("SendSignal")
+      val procDef = procPool.get(pid)
+      if (procDef.isDefined) {
+        if (procDef.get.isDefined) {
+          procDef.get.get.executor ! CmdExecutor.ControlMessages.Signal(signal)
+          logger.debug(s"Signal '$signal' was send to the process executor with pid '$pid'")
+          sender() ! SignalSent
+        } else {
+          logger.warning(s"Unable to send signal '$signal' to the process executor with pid '$pid' because the process spawning procedure is not complited")
+          sender() ! ProcessNotRegistered
+        }
+      } else {
+        logger.warning(s"Unable to send signal '$signal' to the process executor with pid '$pid' because the process does not exist")
+        sender() ! ProcessNotRegistered
+      }
   }
 }

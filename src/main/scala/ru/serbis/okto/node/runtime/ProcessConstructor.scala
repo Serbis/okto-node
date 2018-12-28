@@ -35,21 +35,39 @@ object ProcessConstructor {
       * @param executor command logic executor
       * @param streams map with command IO streams
       * @param orig original sender
+      * @param cmd cmd string with will cause process construction
+      * @param subsystem system with cause process construction(tunnel, shell and etc)
       */
-    case class WaitingStreamAttachments(count: Int, initiator: ActorRef, executor: ActorRef, streams: Map[Int, ActorRef], orig: ActorRef, pid: Int) extends Data
+    case class WaitingStreamAttachments(
+      count: Int, initiator: ActorRef,
+      executor: ActorRef,
+      streams: Map[Int, ActorRef],
+      orig: ActorRef,
+      pid: Int, cmd: String,
+      subsystem: String) extends Data
 
     /** @param executor class of an actor that implements the program logic of a command
       * @param orig original sender
+      * @param cmd cmd string with will cause process construction
+      * @param subsystem system with cause process construction(tunnel, shell and etc)
       */
-    case class WaitingPid(initiator: ActorRef, executor: ActorRef,  orig: ActorRef, stdOutReceiver: ActorRef) extends Data
+    case class WaitingPid(
+      initiator: ActorRef,
+      executor: ActorRef,
+      orig: ActorRef,
+      stdOutReceiver: ActorRef,
+      cmd: String,
+      subsystem: String) extends Data
   }
 
   object Commands {
 
     /** @param executor class of an actor that implements the program logic of a command
       * @param initiator actor is the recipient of the StdOut and exit code of the command
+      * @param cmd cmd string with will cause process construction
+      * @param subsystem system with cause process construction(tunnel, shell and etc)
       */
-    case class Exec(executor: ActorRef, initiator: ActorRef)
+    case class Exec(executor: ActorRef, initiator: ActorRef, cmd: String, subsystem: String)
   }
 
   object Responses {
@@ -60,8 +78,21 @@ object ProcessConstructor {
       * @param executor executor actor reference
       * @param pid process identifier
       * @param streams io streams of the process
+      * @param createTime time when process was created
+      * @param command command to start the process
+      * @param initiator subsystem which launched the process (shell, boot and etc)
+      * @param owner user witch start the process
+      *
       */
-    case class ProcessDef(ref: ActorRef, executor: ActorRef, pid: Int, streams: Map[Int, ActorRef])
+    case class ProcessDef(
+      ref: ActorRef,
+      executor: ActorRef,
+      pid: Int,
+      streams: Map[Int, ActorRef],
+      createTime: Long,
+      command: String,
+      initiator: String,
+      owner: (String, Int))
 
     /** Error response */
     case object Error
@@ -87,7 +118,7 @@ class ProcessConstructor(env: Env, testMode: Boolean) extends FSM[State, Data] w
     case Event(req: Exec, _) =>
       implicit val logQualifier = LogEntryQualifier("Idle_Exec")
       env.runtime ! Runtime.Commands.ReservePid
-      goto(WaitPid) using WaitingPid(req.initiator, req.executor, sender(), req.initiator)
+      goto(WaitPid) using WaitingPid(req.initiator, req.executor, sender(), req.initiator, req.cmd, req.subsystem)
 
     case Event(StateTimeout, _) =>
       implicit val logQualifier = LogEntryQualifier("Idle_StateTimeout")
@@ -109,7 +140,7 @@ class ProcessConstructor(env: Env, testMode: Boolean) extends FSM[State, Data] w
       )
       //streams(0) ! Stream.Commands.Attach(data.stdOutReceiver)
       streams(1) ! Stream.Commands.Attach(data.executor)
-      goto(WaitStreamAttachments) using WaitingStreamAttachments(2, data.initiator, data.executor, streams, data.orig, pid.id)
+      goto(WaitStreamAttachments) using WaitingStreamAttachments(2, data.initiator, data.executor, streams, data.orig, pid.id, data.cmd, data.subsystem)
 
     case Event(StateTimeout, data: WaitingPid) =>
       implicit val logQualifier = LogEntryQualifier("WaitPid_StateTimeout")
@@ -126,7 +157,7 @@ class ProcessConstructor(env: Env, testMode: Boolean) extends FSM[State, Data] w
       //if (data.count <= 1) {
         val process = context.system.actorOf(Process.props(env, data.initiator, data.executor, data.streams, data.pid), s"process_${data.pid}")
         logger.debug(s"Process with pid '${data.pid}' was constructed")
-        data.orig ! ProcessDef(process, data.executor, data.pid, data.streams)
+        data.orig ! ProcessDef(process, data.executor, data.pid, data.streams, System.currentTimeMillis(), data.cmd, data.subsystem, ("root", 0))
         stop
       //} else {
       //  stay using data.copy(count = data.count - 1)
