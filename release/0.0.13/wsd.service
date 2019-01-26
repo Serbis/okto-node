@@ -1,0 +1,13 @@
+[Unit]
+Description=nrf24 chip driver
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/wsd.pid
+ExecStart=/usr/share/node/wsd/wsd start
+ExecStop=/usr/share/node/wsd/wsd stop
+ExecReload=/usr/share/node/wsd/wsd restart
+
+[Install]
+WantedBy=multi-user.target

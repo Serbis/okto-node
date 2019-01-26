@@ -194,8 +194,9 @@ class Stream(maxBufSize: Int, pid: Int) extends Actor with StreamLogger {
     /** See msg description */
     case WriteWrapped(data) =>
       implicit val logQualifier = LogEntryQualifier("WriteWrapped")
-      if (data == ByteString(80, 48, 23))
-        println("x")
+      //if (data == ByteString(80, 48, 23))
+      //  println("x")
+
       if (consumers.isEmpty) {
         if (buf.size + data.size <= maxBufSize) {
           if (deferredReaders.isEmpty) {

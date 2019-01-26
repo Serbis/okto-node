@@ -6,17 +6,21 @@ import java.security.{KeyStore, SecureRandom}
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{ActorRef, FSM, Props, Status}
+import akka.event.Logging
 import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
 import ru.serbis.okto.node.adapter.RestLayer
+import ru.serbis.okto.node.boot.BootManager
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.common.FsmDefaults.{Data, State}
-import ru.serbis.okto.node.hardware.{SerialBridge, SystemDaemon}
+import ru.serbis.okto.node.hardware.{RfBridge, RfConfigurer, SerialBridge, SystemDaemon}
 import ru.serbis.okto.node.log.Logger.{LogEntryQualifier, LogLevels}
 import ru.serbis.okto.node.log.{FileLogger, StdOutLogger, StreamLogger}
 import ru.serbis.okto.node.proxy.files.RealFilesProxy
+import ru.serbis.okto.node.proxy.napi.RealNativeApiProxy
+import ru.serbis.okto.node.proxy.system.RealActorSystemProxy
 import ru.serbis.okto.node.reps._
 import ru.serbis.okto.node.runtime.{Runtime, VmPool}
 
@@ -104,6 +108,9 @@ class Runner extends FSM[State, Data] with StreamLogger {
     case Event(req: Exec, _) =>
       implicit val logQualifier = LogEntryQualifier("Idle_Exec")
 
+      //Set global log level
+      context.system.eventStream.setLogLevel(Logging.ErrorLevel)
+
       val mainRep = context.system.actorOf(MainRep.props(s"${req.workDir}/node.conf"), "MainRep")
       mainRep ! MainRep.Commands.GetAllConfiguration
       goto(Configure) using Configuring(req.workDir, mainRep)
@@ -134,8 +141,8 @@ class Runner extends FSM[State, Data] with StreamLogger {
       //--- jni
       logger.info(s"Set native library emulation mode to '${cfg.hardwareConfiguration.emulation}'")
       if (cfg.hardwareConfiguration.emulation) {
-        System.loadLibrary("Hw_e")
-        logger.info("Loaded native library libHw_e")
+        System.loadLibrary("Hw_x86")
+        logger.info("Loaded native library libHw_x86")
       } else {
         System.loadLibrary("Hw")
         logger.info("Loaded native library libHw")
@@ -151,7 +158,7 @@ class Runner extends FSM[State, Data] with StreamLogger {
         cfg.hardwareConfiguration.uartConfiguration.baud,
         cfg.hardwareConfiguration.uartConfiguration.maxReq,
         FiniteDuration(cfg.hardwareConfiguration.uartConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
-        cfg.hardwareConfiguration.emulation), "SerialBridge"
+        new RealNativeApiProxy()), "SerialBridge"
       )
 
       //--- nsd
@@ -164,6 +171,22 @@ class Runner extends FSM[State, Data] with StreamLogger {
         FiniteDuration(cfg.hardwareConfiguration.nsdConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
         cfg.hardwareConfiguration.emulation), "SystemDaemon"
       )
+
+      //--- rf
+
+      logger.info(s"Set wsd socket path to '${cfg.hardwareConfiguration.rfConfiguration.socket}'")
+
+      val rfBridge = context.system.actorOf(RfBridge.props(
+        cfg.hardwareConfiguration.rfConfiguration.socket,
+        cfg.hardwareConfiguration.rfConfiguration.maxReq,
+        FiniteDuration(cfg.hardwareConfiguration.rfConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
+        new RealNativeApiProxy()), "RfBridge"
+      )
+
+      //--- rf configurer
+
+      val rfConfigurer = context.system.actorOf(RfConfigurer.props(cfg.hardwareConfiguration.rfConfiguration, rfBridge))
+      rfConfigurer ! RfConfigurer.Commands.Exec()
 
       //--- virtualization
 
@@ -211,12 +234,15 @@ class Runner extends FSM[State, Data] with StreamLogger {
           val systemCommandsRep = context.system.actorOf(SyscomsRep.props(s"${data.workDir}/syscoms.conf"), "SyscomsRep")
           val userCommandsRep = context.system.actorOf(UsercomsRep.props(s"${data.workDir}/usercoms.conf"), "UsercomsRep")
           val scriptsRep = context.system.actorOf(ScriptsRep.props(s"${data.workDir}/ucmd", cfg.virtualizationConfiguration.scriptCacheTime, cfg.virtualizationConfiguration.scriptCacheCleanInterval), "ScriptsRep")
+          val bootRep = context.system.actorOf(BootRep.props(s"${data.workDir}/boot.conf"), "BootRep")
 
           val env = Env(
             syscomsRep = systemCommandsRep,
             usercomsRep = userCommandsRep,
             scriptsRep = scriptsRep,
+            bootRep = bootRep,
             serialBridge = serialBridge,
+            rfBridge = rfBridge,
             systemDaemon = systemDaemon,
             vmPool = vmPool,
             storageRep = storage,
@@ -226,6 +252,10 @@ class Runner extends FSM[State, Data] with StreamLogger {
           val env2 = env.copy(runtime = runtime)
           val rest = context.system.actorOf(RestLayer.props(env2), "RestLayer")
           rest ! RestLayer.Commands.RunServer(cfg.shellConfiguration.host, cfg.shellConfiguration.port, https)
+
+          //--- Boot manager
+          val bootManager = context.actorOf(BootManager.props(env2, new RealActorSystemProxy(context.system)))
+          bootManager ! BootManager.Commands.Exec()
 
           goto(WaitShellEndpointBinding)
         } catch {
@@ -239,9 +269,6 @@ class Runner extends FSM[State, Data] with StreamLogger {
         context.system.terminate()
         stop
       }
-
-
-
 
     case Event(StateTimeout, _) =>
       implicit val logQualifier = LogEntryQualifier("ConfigureLog_StateTimeout")

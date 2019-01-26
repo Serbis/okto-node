@@ -22,10 +22,11 @@ import scala.concurrent.duration._
 object PipePreparator {
 
   /** @param env node's env object
+    * @param initiator hwo run this fsm - shell, boot or other
     * @param testMode test mode flag
     */
-  def props(env: Env, testMode: Boolean = false) =
-    Props(new PipePreparator(env, testMode))
+  def props(env: Env, initiator: String, testMode: Boolean = false) =
+    Props(new PipePreparator(env, initiator, testMode))
 
   object States {
     /** see description of the state code */
@@ -84,7 +85,7 @@ object PipePreparator {
   }
 }
 
-class PipePreparator(env: Env, testMode: Boolean) extends FSM[State, Data] with StreamLogger {
+class PipePreparator(env: Env, initiator: String, testMode: Boolean) extends FSM[State, Data] with StreamLogger {
   import PipePreparator.Commands._
   import PipePreparator.Internals._
   import PipePreparator.Responses._
@@ -170,7 +171,7 @@ class PipePreparator(env: Env, testMode: Boolean) extends FSM[State, Data] with 
         val s = data.sys.commandsDef.get(headCommand.name)
         val u = data.usr.commandsDef.get(headCommand.name)
         val cmdDef = if (s.get.isDefined) s.get.get else u.get.get
-        env.runtime ! Runtime.Commands.Spawn(headCommand.name, headCommand.args, cmdDef, self, "shell")
+        env.runtime ! Runtime.Commands.Spawn(headCommand.name, headCommand.args, cmdDef, self, initiator)
         goto(ProcessesSpawning) using InProcessesSpawning(headCommand.name, headCommand.args)
       } else {
         logger.debug(s"Can not create pipe, some commands not found '${notFound.toSpacedString}'")

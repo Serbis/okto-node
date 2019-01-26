@@ -18,8 +18,8 @@ object Runtime {
 
   object Commands {
 
-    /** Creates a new process for the command specified in the arguments. If successful, returns the ID of the created process
-      * in the Pid message, otherwise the SpawnError message is returned
+    /** Creates a new process for the command specified in the arguments. If successful, returns the
+      * ProcessDef.Responses.ProcessDef, otherwise the SpawnError message is returned
       *
       * @param cmd command name
       * @param args command arguments

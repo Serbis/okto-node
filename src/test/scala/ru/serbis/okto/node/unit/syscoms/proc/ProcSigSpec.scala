@@ -18,7 +18,7 @@ class ProcSigSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
   }
 
 
-  "ProcInfo" must {
+  "ProcSig" must {
     "Process positive test" in {
       val probe = TestProbe()
       val runtime = TestProbe()
@@ -42,15 +42,15 @@ class ProcSigSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
 
       val target1 = system.actorOf(ProcSig.props(Vector("x", "9"), env, stdIn.ref, stdOut.ref))
       probe.send(target1, ProcSig.Commands.Exec)
-      probe.expectMsg(Proc.Internals.Complete(10, "Pid and signal must be a numbers"))
+      probe.expectMsg(Proc.Internals.Complete(20, "Pid and signal must be a numbers"))
 
       val target2 = system.actorOf(ProcSig.props(Vector("100", "x"), env, stdIn.ref, stdOut.ref))
       probe.send(target2, ProcSig.Commands.Exec)
-      probe.expectMsg(Proc.Internals.Complete(10, "Pid and signal must be a numbers"))
+      probe.expectMsg(Proc.Internals.Complete(20, "Pid and signal must be a numbers"))
 
       val target3 = system.actorOf(ProcSig.props(Vector("100"), env, stdIn.ref, stdOut.ref))
       probe.send(target3, ProcSig.Commands.Exec)
-      probe.expectMsg(Proc.Internals.Complete(10, "Expected 2 option but found 1"))
+      probe.expectMsg(Proc.Internals.Complete(21, "Expected 2 option but found 1"))
     }
 
     "Complete with error code if rimtime respond with ProcessNotRegistered" in {
@@ -64,7 +64,7 @@ class ProcSigSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
       probe.send(target, ProcSig.Commands.Exec)
       runtime.expectMsg(Runtime.Commands.SendSignal(100, 9))
       runtime.reply(Runtime.Responses.ProcessNotRegistered)
-      probe.expectMsg(Proc.Internals.Complete(11, "Process does not exist"))
+      probe.expectMsg(Proc.Internals.Complete(22, "Process does not exist"))
     }
 
     "Return error if runtime does not respond with expected timeout" in {
@@ -75,7 +75,7 @@ class ProcSigSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
       val env = Env(runtime = runtime.ref)
       val target = system.actorOf(ProcSig.props(Vector("100", "9"), env, stdIn.ref, stdOut.ref, testMode = true))
       probe.send(target, ProcSig.Commands.Exec)
-      probe.expectMsg(Proc.Internals.Complete(12, "Runtime timeout"))
+      probe.expectMsg(Proc.Internals.Complete(23, "Runtime timeout"))
     }
   }
 }

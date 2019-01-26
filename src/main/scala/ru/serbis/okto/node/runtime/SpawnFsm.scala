@@ -8,15 +8,16 @@ import ru.serbis.okto.node.log.StreamLogger
 import ru.serbis.okto.node.reps.ScriptsRep
 import ru.serbis.okto.node.reps.SyscomsRep.Responses.SystemCommandDefinition
 import ru.serbis.okto.node.reps.UsercomsRep.Responses.UserCommandDefinition
-import ru.serbis.okto.node.syscoms.{Echo, ReadAdc}
 import ru.serbis.okto.node.syscoms.shell.Shell
 import ru.serbis.okto.node.common.ReachTypes.ReachVector
 import ru.serbis.okto.node.runtime.app.AppCmdExecutor
+import ru.serbis.okto.node.syscoms.boot.Boot
 import ru.serbis.okto.node.syscoms.pm.Pm
 import ru.serbis.okto.node.syscoms.proc.Proc
 import ru.serbis.okto.node.syscoms.storage.Storage
 
 import scala.concurrent.duration._
+import scala.util.Random
 
 /** This actor is designed to create a new process for some command and run it */
 object SpawnFsm {
@@ -93,12 +94,11 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
       req.cmdDef match {
         case d: SystemCommandDefinition =>
           val executor = req.cmd match {
-            case "echo" => Some(context.system.actorOf(Echo.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
-            case "readAdc" => Some(context.system.actorOf(ReadAdc.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "shell" => Some(context.system.actorOf(Shell.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "pm" => Some(context.system.actorOf(Pm.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "storage" => Some(context.system.actorOf(Storage.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "proc" => Some(context.system.actorOf(Proc.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
+            case "boot" => Some(context.system.actorOf(Boot.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case _ => None
           }
 
@@ -129,7 +129,7 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
   when(WaitScriptCode, if (testMode) 0.5 second else 5 second) {
     case Event(ScriptsRep.Responses.Script(code), WaitingScriptCode(cmd, args, initiator, ccmd, subsystem)) =>
       implicit val logQualifier = LogEntryQualifier("WaitScriptCode_Script")
-      val executor = context.system.actorOf(AppCmdExecutor.props(env, Vector(cmd, code) ++ args), s"Executor_${System.currentTimeMillis()}")
+      val executor = context.system.actorOf(AppCmdExecutor.props(env, Vector(cmd, code) ++ args), s"Executor_${Random.nextLong()}")
       val processConstructor = context.system.actorOf(ProcessConstructor.props(env))
       processConstructor ! ProcessConstructor.Commands.Exec(executor, initiator, ccmd, subsystem)
       goto(WaitProcessCreation) using WaitingProcessCreation

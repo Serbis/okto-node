@@ -23,7 +23,7 @@ import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHa
 import jdk.nashorn.internal.parser.Parser
 import jdk.nashorn.internal.runtime.{Context, ErrorManager}
 import jdk.nashorn.internal.runtime.options.Options
-import ru.serbis.okto.node.log.Logger.LogLevels
+import ru.serbis.okto.node.log.Logger.{LogEntryQualifier, LogLevels}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
 
 import scala.concurrent.duration._
@@ -53,20 +53,24 @@ class Work extends Runnable {
   }
 }
 
-object Exps extends StreamLogger {
+object Exps extends /*App with*/ StreamLogger {
   implicit val system = ActorSystem("my-system")
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = system.dispatcher
   implicit val askTimeout = Timeout(10 second)
+  implicit val logQualifier = LogEntryQualifier("Exps")
 
-  initializeGlobalLogger(system, LogLevels.Info)
+  initializeGlobalLogger(system, LogLevels.Error)
   logger.addDestination(system.actorOf(StdOutLogger.props, "StdOutLogger"))
 
-  val t = new Thread(new Work)
-  t.start()
-  t.interrupt()
-  Thread.sleep(3000)
-  t.interrupt()
+  1 to 100 foreach { v =>
+    println(Runtime.getRuntime.freeMemory())
+    1 to 100000 foreach { v =>
+      logger.debug("a")
+    }
+  }
+
+  println("FINISHED")
 
 
 

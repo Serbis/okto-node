@@ -73,13 +73,13 @@ class ProcSig(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Acto
         } catch {
           case _: Exception =>
             logger.warning(s"Unable to cast pid or signal argument to Int")
-            orig ! Proc.Internals.Complete(10, "Pid and signal must be a numbers")
+            orig ! Proc.Internals.Complete(20, "Pid and signal must be a numbers")
             stop
 
         }
       } else {
         logger.warning(s"Expected 2 option but found '${nextArgs.size}'")
-        orig ! Proc.Internals.Complete(10, s"Expected 2 option but found ${nextArgs.size}")
+        orig ! Proc.Internals.Complete(21, s"Expected 2 option but found ${nextArgs.size}")
         stop
       }
 
@@ -100,14 +100,14 @@ class ProcSig(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Acto
 
     case Event(Runtime.Responses.ProcessNotRegistered, _) =>
       logger.warning(s"Signal does not processed by runtime because process does not exist")
-      orig ! Proc.Internals.Complete(11, "Process does not exist")
+      orig ! Proc.Internals.Complete(22, "Process does not exist")
       stop
 
     //NOT TESTABLE
     case Event(StateTimeout, _) =>
       implicit val logQualifier = LogEntryQualifier("WaitRuntimeResponse_StateTimeout")
       logger.error("Runtime actor response timeout")
-      orig ! Proc.Internals.Complete(12, "Runtime timeout")
+      orig ! Proc.Internals.Complete(23, "Runtime timeout")
       stop
   }
 

@@ -157,7 +157,7 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
               }
             } pipeTo self
           } else {
-            logger.debug(s"Unable to remove definition for command '$cmd'. Definition already exist")
+            logger.debug(s"Unable to remove definition for command '$cmd'. Definition does not exist")
             sender() ! NotExist
           }
         }

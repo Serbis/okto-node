@@ -49,7 +49,7 @@ class ShellSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
       pipeStdOut.reply(Stream.Responses.Attached)
       pipeStdOut.expectMsg(Stream.Commands.Flush)
       shellStdIn.send(target, Stream.Responses.Data(ByteString("y") ++ ByteString(Array(EOI))))
-      pipeStdIn.expectMsg(Stream.Commands.Write(ByteString("y") ++ ByteString(Array(EOI))))
+      pipeStdIn.expectMsg(Stream.Commands.WriteWrapped(ByteString("y") ++ ByteString(Array(EOI))))
       pipeStdOut.send(target, Stream.Responses.Data(ByteString("z") ++ ByteString(Array(EOF))))
       shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString("z") ++ ByteString(Array(EOP))))
       shellStdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString(Array(PROMPT))))

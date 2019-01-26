@@ -71,7 +71,8 @@ object MainRep {
     case class HardwareConfiguration(
       emulation:  Boolean,
       uartConfiguration: UartConfiguration,
-      nsdConfiguration: NsdConfiguration
+      nsdConfiguration: NsdConfiguration,
+      rfConfiguration: RfConfiguration
     )
 
     case class UartConfiguration(
@@ -85,6 +86,22 @@ object MainRep {
       socket: String,
       responseCleanInterval: Int,
       maxReq: Int
+    )
+
+    case class RfConfiguration(
+      socket: String,
+      responseCleanInterval: Int,
+      maxReq: Int,
+      p1_targ: String,
+      p1_self: String,
+      p2_targ: String,
+      p2_self: String,
+      p3_targ: String,
+      p3_self: String,
+      p4_targ: String,
+      p4_self: String,
+      p5_targ: String,
+      p5_self: String,
     )
 
     case class VirtualizationConfiguration(
@@ -346,6 +363,119 @@ class MainRep(confName: String) extends Actor with StreamLogger with Stash {
         1000
     }
 
+    val rfSocket = Try {
+      config.get.getString("node.hardware.rf.socket")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> socket. The default value of '/tmp/wsd.socket' is returned. Error reason: ${r.getMessage}")
+        "/tmp/wsd.socket"
+    }
+
+    val rfMaxReq = Try {
+      config.get.getInt("node.hardware.rf.maxReq")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> maxReq. The default value of '50' is returned. Error reason: ${r.getMessage}")
+        50
+    }
+
+    val rfResponseCleanInterval = Try {
+      config.get.getInt("node.hardware.rf.responseCleanInterval")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> responseCleanInterval. The default value of '1000' is returned. Error reason: ${r.getMessage}")
+        1000
+    }
+
+    //-------------
+
+    val rfP1Targ = Try {
+      config.get.getString("node.hardware.rf.p1_targ")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p1_targ. The default value of 'AAAAAA01' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA01"
+    }
+
+    val rfP1Self = Try {
+      config.get.getString("node.hardware.rf.p1_self")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p1_self. The default value of 'AAAAAA11' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA11"
+    }
+
+
+
+    val rfP2Targ = Try {
+      config.get.getString("node.hardware.rf.p2_targ")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p2_targ. The default value of 'AAAAAA02' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA02"
+    }
+
+    val rfP2Self = Try {
+      config.get.getString("node.hardware.rf.p2_self")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p2_self. The default value of 'AAAAAA12' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA12"
+    }
+
+
+    val rfP3Targ = Try {
+      config.get.getString("node.hardware.rf.p3_targ")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p3_targ. The default value of 'AAAAAA03' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA03"
+    }
+
+    val rfP3Self = Try {
+      config.get.getString("node.hardware.rf.p3_self")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p3_self. The default value of 'AAAAAA13' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA13"
+    }
+
+
+    val rfP4Targ = Try {
+      config.get.getString("node.hardware.rf.p4_targ")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p4_targ. The default value of 'AAAAAA04' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA04"
+    }
+
+    val rfP4Self = Try {
+      config.get.getString("node.hardware.rf.p4_self")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p4_self. The default value of 'AAAAAA14' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA14"
+    }
+
+
+    val rfP5Targ = Try {
+      config.get.getString("node.hardware.rf.p5_targ")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p5_targ. The default value of 'AAAAAA05' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA05"
+    }
+
+    val rfP5Self = Try {
+      config.get.getString("node.hardware.rf.p5_self")
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> rf -> p5_self. The default value of 'AAAAAA15' is returned. Error reason: ${r.getMessage}")
+        "AAAAAA15"
+    }
+
+    //---------------
+
     val emulation = Try {
       config.get.getBoolean("node.hardware.emulation")
     } recover {
@@ -355,7 +485,22 @@ class MainRep(confName: String) extends Actor with StreamLogger with Stash {
     }
     val uartConfiguration = UartConfiguration(bridgeDevice.get, bridgeBaud.get, bridgeResponseCleanInterval.get, bridgeMaxReq.get)
     val nsdConfiguration = NsdConfiguration(nsdSocket.get, nsdResponseCleanInterval.get, nsdMaxReq.get)
-    HardwareConfiguration(emulation.get, uartConfiguration, nsdConfiguration)
+    val rfConfiguration = RfConfiguration(
+      rfSocket.get,
+      rfResponseCleanInterval.get,
+      rfMaxReq.get,
+      rfP1Targ.get,
+      rfP1Self.get,
+      rfP2Targ.get,
+      rfP2Self.get,
+      rfP3Targ.get,
+      rfP3Self.get,
+      rfP4Targ.get,
+      rfP4Self.get,
+      rfP5Targ.get,
+      rfP5Self.get
+    )
+    HardwareConfiguration(emulation.get, uartConfiguration, nsdConfiguration, rfConfiguration)
   }
 
   def getStorageConfiguration = {

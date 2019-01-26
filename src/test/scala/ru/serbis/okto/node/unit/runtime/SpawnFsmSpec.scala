@@ -34,7 +34,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env))
-      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
+      probe.send(target, SpawnFsm.Commands.Exec("shell", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       runtime.reply(Runtime.Responses.Pid(1000))
       val inject = runtime.expectMsgType[Runtime.Commands.Inject]
@@ -122,7 +122,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env))
-      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
+      probe.send(target, SpawnFsm.Commands.Exec("shell", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       probe.expectMsg(10 second, Runtime.Responses.SpawnError)
     }
@@ -136,7 +136,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
       val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(SpawnFsm.props(env, testMode = true))
-      probe.send(target, SpawnFsm.Commands.Exec("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
+      probe.send(target, SpawnFsm.Commands.Exec("shell", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       runtime.expectMsg(Runtime.Commands.ReservePid)
       runtime.reply(Runtime.Responses.Pid(1003))
       val inject = runtime.expectMsgType[Runtime.Commands.Inject]

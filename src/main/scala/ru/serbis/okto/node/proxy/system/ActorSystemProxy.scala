@@ -14,5 +14,5 @@ import akka.actor.{ActorRef, ActorSystem, Props}
   * necessary implementation of the proxy to the actor who is going to use the actor system methods. */
 trait ActorSystemProxy {
   val system: ActorSystem
-  def actorOf(props: Props): ActorRef
+  def actorOf(props: Props, name: Option[String] = None): ActorRef
 }

@@ -84,7 +84,7 @@ class RuntimeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
       val initiator = TestProbe()
       val target = system.actorOf(Runtime.props(Env()))
 
-      probe.send(target, Runtime.Commands.Spawn("echo", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
+      probe.send(target, Runtime.Commands.Spawn("shell", Vector("a"), SystemCommandDefinition(""), initiator.ref, "shell"))
       probe.expectMsgType[ProcessConstructor.Responses.ProcessDef]
     }
 

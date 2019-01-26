@@ -19,7 +19,7 @@ object TestActorSystemProxy {
 class TestActorSystemProxy(tpRef: ActorRef, actorSystem: ActorSystem) extends ActorSystemProxy {
   import TestActorSystemProxy._
 
-  override def actorOf(props: Props): ActorRef = {
+  override def actorOf(props: Props, name: Option[String] = None): ActorRef = {
     Await.result(tpRef.ask(Actions.ActorOf(props))(3 second), 3 second) match {
       case Predicts.Throw(ex) => throw ex
       case v: ActorRef => v

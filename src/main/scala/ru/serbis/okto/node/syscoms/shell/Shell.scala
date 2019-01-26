@@ -19,6 +19,7 @@ import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 //TODO [1] comment
+/** First arg is used for determine initiator name*/
 object Shell {
   def props(env: Env, args: Vector[String], systemEx: ActorSystemExpander = new RealActorSystem, testMode: Boolean = false) =
     Props(new Shell(env, args, systemEx, testMode))
@@ -159,7 +160,10 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
       implicit val logQualifier = LogEntryQualifier("StatementsProcessingMode_ProcessStatement")
       data.statements.head match {
         case PipedNode(commands) =>
-          val pipePreparator = systemEx.actorOf(PipePreparator.props(env))
+          val pipePreparator = {
+            if (args.isEmpty) systemEx.actorOf(PipePreparator.props(env, "shell"))
+            else systemEx.actorOf(PipePreparator.props(env, args.head))
+          }
           pipePreparator ! PipePreparator.Commands.Exec(commands.toList)
           logger.debug(s"Start processing of the piped statement '$commands'")
           goto(StatementPipeInitMode) using InStatementPipeInitMode(data.statements.tailOrEmpty)
@@ -226,7 +230,7 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
     case Event(Stream.Responses.Data(bs), data: InStatementPipeInteractionMode) if sender() == stdIn =>
       implicit val logQualifier = LogEntryQualifier("StatementPipeInteractionMode_Data")
       logger.debug(s"Received data from shell stdIn '${if (bs.size > 100) "CUTTED" else bs.toHexString}'")
-      data.circuit.stdIn.tell(Stream.Commands.Write(bs), ActorRef.noSender)
+      data.circuit.stdIn.tell(Stream.Commands.WriteWrapped(bs), ActorRef.noSender)
       stay
 
     case Event(Stream.Responses.Data(bs), data: InStatementPipeInteractionMode) if sender() == data.circuit.stdOut =>

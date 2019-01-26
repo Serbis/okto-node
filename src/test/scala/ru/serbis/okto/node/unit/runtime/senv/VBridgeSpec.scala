@@ -3,7 +3,7 @@ package ru.serbis.okto.node.unit.runtime.senv
 import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-import ru.serbis.okto.node.hardware.SerialBridge
+import ru.serbis.okto.node.hardware.{RfBridge, SerialBridge}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
 import ru.serbis.okto.node.runtime.app.AppCmdExecutor
 import ru.serbis.okto.node.runtime.senv.VBridge
@@ -20,81 +20,150 @@ class VBridgeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
   }
 
   "VBridge" must {
-    "Send request to the serial bridge and return response" in {
+    "Send requests to the bridges and return correct responses" in {
       val serialBridge = TestProbe()
-      val target = new VBridge(serialBridge.ref)
+      val rfBridge = TestProbe()
+      val target = new VBridge(serialBridge.ref, rfBridge.ref)
 
-      val shellFut = Future {
-        target.req("a")
+      var shellFut = Future {
+        target.req(0, "a")
       }
-      serialBridge.expectMsg(SerialBridge.Commands.SerialRequest("a", 543))
-      serialBridge.reply(SerialBridge.Responses.SerialResponse("b", 543))
-      val result = Await.result(shellFut, 1 second)
-      result shouldEqual "b"
-    }
+      serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
+      serialBridge.reply(SerialBridge.Responses.ExbResponse("b"))
+      var result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 0
+      result.result shouldEqual "b"
 
-    "Return null if serial bridge response timeout was reached" in {
-      val serialBridge = TestProbe()
-      val target = new VBridge(serialBridge.ref)
 
-      val shellFut = Future {
-        target.req("a")
+      shellFut = Future {
+        target.req(0, "a")
       }
+      serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
+      serialBridge.reply(SerialBridge.Responses.ExbError(0, "e"))
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 1
+      result.result shouldEqual "0/e"
 
-      val result = Await.result(shellFut, 5 second)
-      result shouldEqual null
-    }
 
-    "Send null if serial bridge respond with ResponseTimeout" in {
-      val serialBridge = TestProbe()
-      val target = new VBridge(serialBridge.ref)
-
-      val shellFut = Future {
-        target.req("a")
+      shellFut = Future {
+        target.req(0, "a")
       }
-      serialBridge.expectMsg(SerialBridge.Commands.SerialRequest("a", 543))
-      serialBridge.reply(SerialBridge.Responses.ResponseTimeout(543))
-      val result = Await.result(shellFut, 1 second)
-      result shouldEqual null
-    }
+      serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
+      serialBridge.reply(SerialBridge.Responses.BridgeOverload)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 4
+      result.result shouldEqual ""
 
-    "Send null if serial bridge respond with HardwareError" in {
-      val serialBridge = TestProbe()
-      val target = new VBridge(serialBridge.ref)
 
-      val shellFut = Future {
-        target.req("a")
+      shellFut = Future {
+        target.req(0, "a")
       }
-      serialBridge.expectMsg(SerialBridge.Commands.SerialRequest("a", 543))
-      serialBridge.reply(SerialBridge.Responses.HardwareError("x", 543))
-      val result = Await.result(shellFut, 1 second)
-      result shouldEqual null
-    }
+      serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
+      serialBridge.reply(SerialBridge.Responses.TransactionTimeout)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 6
+      result.result shouldEqual ""
 
-    "Send null if serial bridge respond with BridgeOverload" in {
-      val serialBridge = TestProbe() //BridgeOverload
-      val target = new VBridge(serialBridge.ref)
 
-      val shellFut = Future {
-        target.req("a")
+      shellFut = Future {
+        target.req(0, "a")
       }
-      serialBridge.expectMsg(SerialBridge.Commands.SerialRequest("a", 543))
-      serialBridge.reply(SerialBridge.Responses.BridgeOverload(543))
-      val result = Await.result(shellFut, 1 second)
-      result shouldEqual null
-    }
+      serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
+      serialBridge.reply("x")
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 8
+      result.result shouldEqual ""
 
-    "Send null if serial bridge respond with unexpected message" in {
-      val serialBridge = TestProbe() //BridgeOverload
-      val target = new VBridge(serialBridge.ref)
+      //------------------------------------------------------------------
 
-      val shellFut = Future {
-        target.req("a")
+      shellFut = Future {
+        target.req(1, "a")
       }
-      serialBridge.expectMsg(SerialBridge.Commands.SerialRequest("a", 543))
-      serialBridge.reply("e")
-      val result = Await.result(shellFut, 1 second)
-      result shouldEqual null
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.ExbResponse("b"))
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 0
+      result.result shouldEqual "b"
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.ExbError(0, "e"))
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 1
+      result.result shouldEqual "0/e"
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.ExbAddrNotDefined)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 2
+      result.result shouldEqual ""
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.ExbUnreachable)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 3
+      result.result shouldEqual ""
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.BridgeOverload)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 4
+      result.result shouldEqual ""
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.ExbBrokenResponse)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 5
+      result.result shouldEqual ""
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.TransactionTimeout)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 6
+      result.result shouldEqual ""
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply(RfBridge.Responses.DriverError)
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 7
+      result.result shouldEqual ""
+
+
+      shellFut = Future {
+        target.req(1, "a")
+      }
+      rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
+      rfBridge.reply("x")
+      result = Await.result(shellFut, 1 second)
+      result.error shouldEqual 8
+      result.result shouldEqual ""
     }
   }
 }

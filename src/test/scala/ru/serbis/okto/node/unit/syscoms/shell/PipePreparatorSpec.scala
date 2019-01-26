@@ -36,7 +36,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val stdOut1 = TestProbe()
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
-      val target = system.actorOf(PipePreparator.props(env))
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
       probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
@@ -59,7 +59,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
 
       //REVERSE TEST
 
-      val target2 = system.actorOf(PipePreparator.props(env))
+      val target2 = system.actorOf(PipePreparator.props(env, "shell"))
       probe.send(target2, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       usercomsRep.expectMsg(UsercomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
@@ -86,7 +86,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val runtime = TestProbe()
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
-      val target = system.actorOf(PipePreparator.props(env, testMode = true))
+      val target = system.actorOf(PipePreparator.props(env, "shell", testMode = true))
       probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       probe.expectMsg(PipePreparator.Responses.InternalError)
     }
@@ -98,7 +98,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val runtime = TestProbe()
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
-      val target = system.actorOf(PipePreparator.props(env, testMode = true))
+      val target = system.actorOf(PipePreparator.props(env, "shell", testMode = true))
       probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
@@ -124,7 +124,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val runtime = TestProbe()
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
-      val target = system.actorOf(PipePreparator.props(env))
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
       probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
@@ -148,7 +148,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val runtime = TestProbe()
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
-      val target = system.actorOf(PipePreparator.props(env))
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
       probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(

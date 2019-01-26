@@ -7,9 +7,11 @@ case class Env(
   syscomsRep: ActorRef = ActorRef.noSender,
   usercomsRep: ActorRef = ActorRef.noSender,
   serialBridge: ActorRef = ActorRef.noSender,
+  rfBridge: ActorRef = ActorRef.noSender,
   systemDaemon: ActorRef = ActorRef.noSender,
   vmPool: ActorRef = ActorRef.noSender,
   scriptsRep: ActorRef = ActorRef.noSender,
   storageRep: ActorRef = ActorRef.noSender,
+  bootRep: ActorRef = ActorRef.noSender,
   system: Option[ActorSystem] = None
 )

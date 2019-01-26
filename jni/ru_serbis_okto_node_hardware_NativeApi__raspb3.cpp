@@ -1,6 +1,10 @@
 /* NATIVE API LIBRARY FOR RASPBERRY PI 3 */
 #include "ru_serbis_okto_node_hardware_NativeApi__raspb3.h"
+#include "rings.h"
+#include "wsd_packet.h"
+#include "exb_packet.h"
 #include <iostream>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -18,10 +22,9 @@ extern "C" {
 #include <time.h>
 }
 
-JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_wiringPiSetupSys
-  (JNIEnv *, jobject) {
-    return (jint) 0;
-}
+#define MODE_PREAMBLE 0
+#define MODE_HEADER 1
+#define MODE_BODY 2
 
 /*
  * Class:     ru_serbis_okto_node_hardware_NativeApi__
@@ -36,7 +39,7 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialO
   int uart0_filestream = open((const char*) buf, O_RDWR | O_NOCTTY/* | O_NDELAY | O_NONBLOCK*/);
 
   if (uart0_filestream == -1) {
-    env->ReleaseByteArrayElements(device, buf, JNI_ABORT); 
+    env->ReleaseByteArrayElements(device, buf, JNI_ABORT);
     return (jint) -1;
   }
 
@@ -50,9 +53,9 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialO
   tcsetattr(uart0_filestream, TCSANOW, &options);
 
   env->ReleaseByteArrayElements(device, buf, JNI_ABORT);
-  
+
   return (jint) uart0_filestream;
-  //return (jint) 3;	  
+  //return (jint) 3;
 }
 
 /*
@@ -158,13 +161,91 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialG
 
   //return (jint) rx;
   //return (jint) -1;
-  
+
     uint8_t x ;
 
     if (read (fd, &x, 1) != 1)
 	    return (jint) -1 ;
 
     return (jint) (((int)x) & 0xFF) ;
+}
+
+/*
+ * Class:     ru_serbis_okto_node_hardware_NativeApi__
+ * Method:    serialReadExbPacket
+ * Signature: (II)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialReadExbPacket
+  (JNIEnv *env, jobject, jint fd, jint timeout) {
+    RingBufferDef *inBuf  = RINGS_createRingBuffer(65000, RINGS_OVERFLOW_SHIFT, true);
+    uint64_t prbits = EXB_PREAMBLE_R;
+    uint8_t mode = MODE_PREAMBLE;
+    ExbPacket *packet = NULL;
+    uint16_t sbody = 0;
+
+    while(1) {
+        char ch;
+
+        ssize_t r = read(fd, &ch, 1);
+        if (r > 0) { // if some char was received
+            printf("%02X/%d\n", ch, mode);
+            fflush(stdout);
+            RINGS_write((uint8_t) ch, inBuf);
+            uint16_t dlen = RINGS_dataLenght(inBuf);
+            if (mode == MODE_PREAMBLE) { // If expected preamble form stream
+            	if (dlen >= EXB_PREAMBLE_SIZE) { //If the buffer contain data with size of preamble or more
+            		int r = RINGS_cmpData(dlen - EXB_PREAMBLE_SIZE, (uint8_t*) &prbits, EXB_PREAMBLE_SIZE, inBuf);
+            		if (r == 0) {
+            		    RINGS_dataClear(inBuf);
+                		mode = MODE_HEADER;
+                	}
+                }
+            } else if (mode == MODE_HEADER) {
+                if (dlen >= EXB_HEADER_SIZE ) {
+                    uint8_t *header = (uint8_t*) malloc(EXB_HEADER_SIZE);
+                	packet = (ExbPacket*) malloc(sizeof(ExbPacket));
+                	RINGS_extractData(inBuf->reader, EXB_HEADER_SIZE, header, inBuf);
+                	ExbPacket_parsePacketHeader(packet, header, 0);
+                	sbody = packet->length;
+                	printf("sbody=%d\n", sbody);
+                    fflush(stdout);
+                	if (sbody > 256 - (EXB_PREAMBLE_SIZE + EXB_HEADER_SIZE)) {
+                        mode = MODE_PREAMBLE;
+                        RINGS_dataClear(inBuf);
+                    } else
+                	    mode = MODE_BODY;
+                	free(header);
+                }
+            } else {
+                if (dlen >= sbody + EXB_HEADER_SIZE) {
+                    uint8_t *blobs = (uint8_t*) malloc(sbody + EXB_HEADER_SIZE);
+                    uint8_t *blob = (uint8_t*) malloc(sbody + EXB_HEADER_SIZE + EXB_PREAMBLE_SIZE);
+                    RINGS_readAll(blobs, inBuf);
+                    memcpy(blob + 8, blobs, sbody + EXB_HEADER_SIZE);
+                    memcpy(blob, &prbits, 8);
+
+                    int stotal = sbody + EXB_HEADER_SIZE + EXB_PREAMBLE_SIZE;
+                    jbyteArray ret = env->NewByteArray(stotal);
+                    env->SetByteArrayRegion(ret, 0, stotal, (jbyte*) blob);
+
+
+                    free(blob);
+                    free(blobs);
+                    free(packet);
+                    RINGS_Free(inBuf);
+                    free(inBuf);
+
+                    printf("FINISH\n");
+                    fflush(stdout);
+                    return ret;
+                    //mode = MODE_PREAMBLE;
+                }
+            }
+        } else {
+            jbyteArray ret = env->NewByteArray(0);
+            return ret;
+        }
+    }
 }
 
 /*
@@ -222,6 +303,8 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDom
     jint len = env->GetArrayLength(s);
     jbyte* buf = env->GetByteArrayElements(s, 0);
     jint result = write(sockfd, buf, len);
+    fsync(sockfd);
+
     env->ReleaseByteArrayElements(s, buf, JNI_ABORT);
 
     return result;
@@ -235,4 +318,71 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDom
 JNIEXPORT void JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainClose
   (JNIEnv *, jobject, jint sockfd) {
     close(sockfd);
+}
+
+/*
+ * Class:     ru_serbis_okto_node_hardware_NativeApi__
+ * Method:    unixDomainReadWsdPacket
+ * Signature: (II)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainReadWsdPacket
+  (JNIEnv *env, jobject, jint socket, jint timeout) {
+    RingBufferDef *inBuf  = RINGS_createRingBuffer(65535, RINGS_OVERFLOW_SHIFT, true);
+    uint64_t prbits = WSD_PREAMBLE;
+    uint8_t mode = MODE_PREAMBLE;
+    WsdPacket *packet = NULL;
+    uint16_t sbody = 0;
+
+    while(1) {
+        char ch;
+        fflush(stdout);
+
+        ssize_t r = read(socket, &ch, 1);
+        if (r > 0) { // if some char was received
+            RINGS_write((uint8_t) ch, inBuf);
+            uint16_t dlen = RINGS_dataLenght(inBuf);
+            if (mode == MODE_PREAMBLE) { // If expected preamble form stream
+            	if (dlen >= WSD_PREAMBLE_SIZE) { //If the buffer contain data with size of preamble or more
+            		int r = RINGS_cmpData(dlen - WSD_PREAMBLE_SIZE, (uint8_t*) &prbits, WSD_PREAMBLE_SIZE, inBuf);
+            		if (r == 0) {
+                		//RINGS_dataClear(inBuf);
+                		mode = MODE_HEADER;
+                	}
+                }
+            } else if (mode == MODE_HEADER) {
+                if (dlen >= WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE) {
+                    uint8_t *header = (uint8_t*) malloc(WSD_HEADER_SIZE);
+                	packet = (WsdPacket*) malloc(sizeof(WsdPacket));
+                	RINGS_extractData(inBuf->reader + WSD_PREAMBLE_SIZE, WSD_HEADER_SIZE, header, inBuf);
+                	WsdPacket_parsePacketHeader(packet, header, 0);
+                	sbody = packet->length;
+                	//if (sbody > 128)
+                	//	mode = MODE_PREAMBLE;
+                	mode = MODE_BODY;
+                	free(header);
+                }
+            } else {
+                if (dlen >= sbody + WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE) {
+                    uint8_t *blob = (uint8_t*) malloc(sbody + WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE);
+                    RINGS_readAll(blob, inBuf);
+
+                    int stotal = sbody + WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE;
+                    jbyteArray ret = env->NewByteArray(stotal);
+                    env->SetByteArrayRegion(ret, 0, stotal, (jbyte*) blob);
+
+
+                    free(blob);
+                    free(packet);
+                    RINGS_Free(inBuf);
+                    free(inBuf);
+
+                    return ret;
+                    //mode = MODE_PREAMBLE;
+                }
+            }
+        } else {
+            jbyteArray ret = env->NewByteArray(0);
+            return ret;
+        }
+    }
 }

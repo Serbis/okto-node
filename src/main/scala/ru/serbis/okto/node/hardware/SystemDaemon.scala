@@ -112,7 +112,7 @@ class SystemDaemon(socket: String, maxReq: Int, cleanerTime: FiniteDuration, emu
   /** Current requests table */
   var reqTable = mutable.HashMap.empty[Int, RequestDescriptor]
 
-  /** The stream of data reading from the socket. Its task is to constantly poll the socket and buffering the
+  /** The thread of data reading from the socket. Its task is to constantly poll the socket and buffering the
     * received data. When the stream receives the packet separator (\r), the buffer assembles the byte array and
     * is sent to the system daemon actor in the DaemonData message */
   val reader = if (sockfd == -1) {   //NOT TESTABLE
@@ -151,7 +151,7 @@ class SystemDaemon(socket: String, maxReq: Int, cleanerTime: FiniteDuration, emu
 
   timers.startPeriodicTimer(0, CleanerTick, cleanerTime)
 
-  /** Stops the stream reader. Waiting until it stops, closes the I / O descriptors. */
+  /** Stops the reader thread. Waiting until it stops, closes the I / O descriptors. */
   override def postStop(): Unit = {
     implicit val logQualifier = LogEntryQualifier("postStop")
 
