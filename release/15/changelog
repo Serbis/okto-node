@@ -1,0 +1,3 @@
+- Implemented http client for scripts
+- Fixed the bug of terminating a string in the JNI UART device open function
+- Changed versions numeration system

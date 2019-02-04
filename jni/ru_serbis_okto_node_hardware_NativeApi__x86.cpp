@@ -35,8 +35,15 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialO
   (JNIEnv* env, jobject, jbyteArray device, jint baud) {
 
   jbyte* buf = env->GetByteArrayElements(device, 0);
+  jsize devSize = env->GetArrayLength(device) + 1;
+  char *dev = (char*) malloc(devSize);
+  memcpy(dev, buf, devSize - 1);
+  dev[devSize - 1] = 0;
 
-  int uart0_filestream = open((const char*) buf, O_RDWR | O_NOCTTY/* | O_NDELAY | O_NONBLOCK*/);
+
+  int uart0_filestream = open((const char*) dev, O_RDWR | O_NOCTTY/* | O_NDELAY | O_NONBLOCK*/);
+
+  free(dev);
 
   if (uart0_filestream == -1) {
     env->ReleaseByteArrayElements(device, buf, JNI_ABORT); 

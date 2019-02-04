@@ -1,7 +1,9 @@
 package ru.serbis.okto.node.runtime.senv
 
 import akka.actor.ActorRef
+import akka.stream.ActorMaterializer
 import ru.serbis.okto.node.common.Env
+import ru.serbis.okto.node.proxy.http.RealHttpProxy
 import ru.serbis.okto.node.proxy.system.RealActorSystemProxy
 import ru.serbis.okto.node.runtime.senv.vruntime.VRuntime
 import ru.serbis.okto.node.runtime.senv.vstorage.VStorage
@@ -21,5 +23,6 @@ class ScriptEnvInstance(executor: ActorRef, stdInStream: ActorRef, stdOutStream:
   val runtime = new VRuntime(executor, env.scriptsRep)
   val bridge = new VBridge(env.serialBridge, env.rfBridge)
   val nsd = new VNsd(env.systemDaemon)
+  val http = new VHttp(new RealHttpProxy()(env.system.get), ActorMaterializer.create(env.system.get))
   val storage = new VStorage(env.storageRep, new RealActorSystemProxy(env.system.get))
 }

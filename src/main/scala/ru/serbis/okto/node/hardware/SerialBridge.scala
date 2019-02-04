@@ -117,8 +117,12 @@ class SerialBridge(device: String, baud: Int, maxReq: Int, cleanerTime: FiniteDu
       override def run(): Unit = {
         while(!stop) {
           val packet = nap.serialReadExbPacket(serfd, 1000)
-          if (!stop)
-            self ! UartPayload(ByteString(packet))
+          if (packet.size > 0) {
+            if (!stop)
+              self ! UartPayload(ByteString(packet))
+          } else {
+            Thread.sleep(50)
+          }
         }
         alive = false
       }
