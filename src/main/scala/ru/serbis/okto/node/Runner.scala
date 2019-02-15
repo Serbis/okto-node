@@ -15,6 +15,7 @@ import ru.serbis.okto.node.adapter.RestLayer
 import ru.serbis.okto.node.boot.BootManager
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.common.FsmDefaults.{Data, State}
+import ru.serbis.okto.node.events.Eventer
 import ru.serbis.okto.node.hardware.{RfBridge, RfConfigurer, SerialBridge, SystemDaemon}
 import ru.serbis.okto.node.log.Logger.{LogEntryQualifier, LogLevels}
 import ru.serbis.okto.node.log.{FileLogger, StdOutLogger, StreamLogger}
@@ -148,7 +149,11 @@ class Runner extends FSM[State, Data] with StreamLogger {
         logger.info("Loaded native library libHw")
       }
 
-      //--- expansion board
+      //--- eventer
+
+      val eventer = context.system.actorOf(Eventer.props(), "Eventer")
+
+      //--- uart
 
       logger.info(s"Set expansion board uart device to '${cfg.hardwareConfiguration.uartConfiguration.device}'")
       logger.info(s"Set expansion board uart baud rate to '${cfg.hardwareConfiguration.uartConfiguration.baud}'")
@@ -158,7 +163,9 @@ class Runner extends FSM[State, Data] with StreamLogger {
         cfg.hardwareConfiguration.uartConfiguration.baud,
         cfg.hardwareConfiguration.uartConfiguration.maxReq,
         FiniteDuration(cfg.hardwareConfiguration.uartConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
-        new RealNativeApiProxy()), "SerialBridge"
+        new RealNativeApiProxy(),
+        new RealActorSystemProxy(context.system),
+        eventer), "SerialBridge"
       )
 
       //--- nsd
@@ -180,7 +187,9 @@ class Runner extends FSM[State, Data] with StreamLogger {
         cfg.hardwareConfiguration.rfConfiguration.socket,
         cfg.hardwareConfiguration.rfConfiguration.maxReq,
         FiniteDuration(cfg.hardwareConfiguration.rfConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
-        new RealNativeApiProxy()), "RfBridge"
+        new RealNativeApiProxy(),
+        eventer,
+        new RealActorSystemProxy(context.system)), "RfBridge"
       )
 
       //--- rf configurer
@@ -246,6 +255,7 @@ class Runner extends FSM[State, Data] with StreamLogger {
             systemDaemon = systemDaemon,
             vmPool = vmPool,
             storageRep = storage,
+            eventer = eventer,
             system = Some(context.system)
           )
           val runtime = context.system.actorOf(Runtime.props(env), "Runtime")

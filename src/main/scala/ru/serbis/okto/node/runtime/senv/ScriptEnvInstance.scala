@@ -23,6 +23,7 @@ class ScriptEnvInstance(executor: ActorRef, stdInStream: ActorRef, stdOutStream:
   val runtime = new VRuntime(executor, env.scriptsRep)
   val bridge = new VBridge(env.serialBridge, env.rfBridge)
   val nsd = new VNsd(env.systemDaemon)
+  val events = new VEvents(env.eventer, executor)
   val http = new VHttp(new RealHttpProxy()(env.system.get), ActorMaterializer.create(env.system.get))
   val storage = new VStorage(env.storageRep, new RealActorSystemProxy(env.system.get))
 }

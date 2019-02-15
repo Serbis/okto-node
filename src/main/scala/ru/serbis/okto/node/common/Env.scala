@@ -13,5 +13,6 @@ case class Env(
   scriptsRep: ActorRef = ActorRef.noSender,
   storageRep: ActorRef = ActorRef.noSender,
   bootRep: ActorRef = ActorRef.noSender,
+  eventer: ActorRef = ActorRef.noSender,
   system: Option[ActorSystem] = None
 )

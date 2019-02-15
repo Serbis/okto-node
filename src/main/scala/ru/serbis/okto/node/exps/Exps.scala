@@ -63,14 +63,11 @@ object Exps extends /*App with*/ StreamLogger {
   initializeGlobalLogger(system, LogLevels.Error)
   logger.addDestination(system.actorOf(StdOutLogger.props, "StdOutLogger"))
 
-  1 to 100 foreach { v =>
-    println(Runtime.getRuntime.freeMemory())
-    1 to 100000 foreach { v =>
-      logger.debug("a")
-    }
-  }
+  val a = 0xaaaaaa01
+  val b = Integer.reverseBytes(a)
+  val c = 2863311361L
 
-  println("FINISHED")
+  printf(s"$a$b$c")
 
 
 

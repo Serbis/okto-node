@@ -12,6 +12,7 @@ import ru.serbis.okto.node.reps.SyscomsRep.Responses.SystemCommandDefinition
 import ru.serbis.okto.node.runtime.senv.ScriptEnvInstance
 import ru.serbis.okto.node.runtime.{CmdExecutor, Process, ProcessConstructor, Runtime, Stream, VmPool}
 import ru.serbis.okto.node.testut.{ActorSystemExpander, RealActorSystem}
+import ru.serbis.okto.node.events.{Eventer, HardwareEvent, SystemEvent}
 
 import scala.concurrent.duration._
 
@@ -184,6 +185,14 @@ class AppCmdExecutor(env: Env, args: Vector[String], systemEx: ActorSystemExpand
         thread.interrupt()
       scriptEnv.runtime.mayInterruptedMutex.release()
       stay
+
+    /** Handles events coming from the event controller, for which the executor can act as a subscriber. The subscription
+      * is carried out by the script. For a detailed definition of the principles of operation of this mechanic, see the
+      * VEvents class */
+    //ONLY MANUAL TESTING
+    case Event(event: SystemEvent, InScriptExecution(scriptEnv, _)) =>
+      scriptEnv.events.__putEvent(event)
+      stay
   }
 
   /** Processing the response from the runtime about the results of creating a new shell process */
@@ -221,6 +230,7 @@ class AppCmdExecutor(env: Env, args: Vector[String], systemEx: ActorSystemExpand
       logger.info(s"Command '${args(0)} ${args.slice(2, args.size).toSpacedString}' completed with code $code ${if (code != 0) s" / $message" else ""}")
       streams(0).tell(Stream.Commands.WriteWrapped(ByteString(message).eof.exit(code)), ActorRef.noSender)
       process ! CommandsUnion.Responses.ExecutorFinished(code)
+      env.eventer ! Eventer.Commands.Unsubscribe(None, self) // Unsubscribe from all events
       stop
 
     //NOT TESTABLE
@@ -230,6 +240,7 @@ class AppCmdExecutor(env: Env, args: Vector[String], systemEx: ActorSystemExpand
       streams(0).tell(Stream.Commands.WriteWrapped(ByteString("Internal error 2")), ActorRef.noSender)
       streams(0).tell(Stream.Commands.WriteWrapped(ByteString().eof.exit(1)), ActorRef.noSender)
       process ! CommandsUnion.Responses.ExecutorFinished(1)
+      env.eventer ! Eventer.Commands.Unsubscribe(None, self) // Unsubscribe from all events
       stop
   }
 

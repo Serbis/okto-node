@@ -19,7 +19,7 @@ class VShellLocalSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
     logger.addDestination (system.actorOf (StdOutLogger.props) )
   }
 
-  "VShellLocal" must {
+  /*"VShellLocal" must {
     "For 'read' method" should {
       "Return received data" in {
         val shellProcess = TestProbe()
@@ -225,5 +225,5 @@ class VShellLocalSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
         result shouldEqual false
       }
     }
-  }
+  }*/
 }

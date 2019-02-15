@@ -30,79 +30,123 @@ class TestNativeApiProxy(tpRef: ActorRef) extends NativeApiProxy {
   import TestNativeApiProxy._
 
   override def serialOpen(device: Array[Byte], baud: Int) = {
-    Await.result(tpRef.ask(Actions.SerialOpen(device, baud))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Int => v
+    try {
+      Await.result(tpRef.ask(Actions.SerialOpen(device, baud))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Int => v
+      }
+    } catch {
+      case e: Exception => -1
     }
   }
 
   override def serialClose(fd: Int) = {
-    Await.result(tpRef.ask(Actions.SerialClose(fd))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Unit =>
+    try {
+      Await.result(tpRef.ask(Actions.SerialClose(fd))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Unit =>
+      }
+    } catch {
+      case e: Exception =>
     }
   }
 
   override def serialPutchar(fd: Int, c: Byte) = {
-    Await.result(tpRef.ask(Actions.SerialPutchar(fd, c))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Unit =>
+    try {
+      Await.result(tpRef.ask(Actions.SerialPutchar(fd, c))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Unit =>
+      }
+    } catch {
+      case e: Exception =>
     }
   }
 
   override def serialPuts(fd: Int, s: Array[Byte]) = {
-    Await.result(tpRef.ask(Actions.SerialPuts(fd, s))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Int =>
+    try {
+      Await.result(tpRef.ask(Actions.SerialPuts(fd, s))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Int =>
+      }
+    } catch {
+      case e: Exception =>
     }
   }
 
   override def serialGetchar(fd: Int) = {
-    Await.result(tpRef.ask(Actions.SerialGetchar(fd))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Int => v
+    try {
+      Await.result(tpRef.ask(Actions.SerialGetchar(fd))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Int => v
+      }
+    } catch {
+      case e: Exception => 0
     }
   }
 
   override def serialReadExbPacket(fd: Int, timeout: Int) = {
-    Await.result(tpRef.ask(Actions.SerialReadExbPacket(fd, timeout))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Array[Byte] => v
+    try {
+      Await.result(tpRef.ask(Actions.SerialReadExbPacket(fd, timeout))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Array[Byte] => v
+      }
+    } catch {
+      case e: Exception => Array.fill[Byte](100) (0)
     }
   }
 
   override def unixDomainConnect(path: Array[Byte]) = {
-    Await.result(tpRef.ask(Actions.UnixDomainConnect(path))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Int => v
+    try {
+      Await.result(tpRef.ask(Actions.UnixDomainConnect(path))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Int => v
+      }
+    } catch {
+      case e: Exception => 0
     }
   }
 
   override def unixDomainReadChar(sd: Int) = {
-    Await.result(tpRef.ask(Actions.UnixDomainReadChar(sd))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Int => v
+    try {
+      Await.result(tpRef.ask(Actions.UnixDomainReadChar(sd))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Int => v
+      }
+    } catch {
+      case e: Exception => 0
     }
   }
 
   override def unixDomainWrite(sd: Int, s: Array[Byte]) = {
-    Await.result(tpRef.ask(Actions.UnixDomainWrite(sd, s))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Int => v
+    try {
+      Await.result(tpRef.ask(Actions.UnixDomainWrite(sd, s))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Int => v
+      }
+    } catch {
+      case e: Exception => 0
     }
   }
 
   override def unixDomainClose(sd: Int) = {
-    Await.result(tpRef.ask(Actions.UnixDomainClose(sd))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Unit =>
+    try {
+      Await.result(tpRef.ask(Actions.UnixDomainClose(sd))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Unit =>
+      }
+    } catch {
+      case e: Exception =>
     }
   }
 
   override def unixDomainReadWsdPacket(sd: Int, timeout: Int) = {
-    Await.result(tpRef.ask(Actions.UnixDomainReadWsdPacket(sd, timeout))(3 second), 3 second) match {
-      case Predicts.Throw(ex) => throw ex
-      case v: Array[Byte] => v
+    try {
+      Await.result(tpRef.ask(Actions.UnixDomainReadWsdPacket(sd, timeout))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Array[Byte] => v
+      }
+    } catch {
+      case e: Exception => Array.fill[Byte](100) (0)
     }
   }
 }

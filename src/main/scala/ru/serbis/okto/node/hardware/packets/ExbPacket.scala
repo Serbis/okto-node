@@ -30,6 +30,9 @@ object ExbPacket {
     val TYPE_COMMAND: Byte = 0
     val TYPE_RESPONSE: Byte = 1
     val TYPE_ERROR: Byte = 2
+    val TYPE_EVENT: Byte = 3
+    val TYPE_EVENTC: Byte = 4
+    val TYPE_EVENT_ACK: Byte = 5
   }
 
   def apply(bin: ByteString): BasicExbPacket = {
@@ -43,6 +46,12 @@ object ExbPacket {
       case Constants.TYPE_ERROR =>
         if (bin.size < Constants.HEADER_SIZE_FULL + 4) ExbBrokenPacket()
         else ExbErrorPacket(bin)
+      case e if e == Constants.TYPE_EVENTC || e == Constants.TYPE_EVENT =>
+        if (bin.size < Constants.HEADER_SIZE_FULL + 4) ExbBrokenPacket()
+        else ExbEventPacket(bin)
+      case Constants.TYPE_EVENT_ACK =>
+        if (bin.size < Constants.HEADER_SIZE_FULL + 1) ExbBrokenPacket()
+        else ExbEventAckPacket(bin)
       case _ => ExbBrokenPacket()
     }
   }
@@ -154,6 +163,67 @@ object ExbPacket {
   }
 
   class ExbResponsePacket(override val tid: Int, val response: String) extends BasicExbPacket
+
+
+  //-----------------------------------------------------------------------------------------------
+
+  object ExbEventPacket {
+    def apply(tid: Int, eid: Int, confirmed: Boolean, payload: ByteString): ByteString = toBinary(tid, confirmed, eid, payload)
+    def apply(bin: ByteString): ExbEventPacket = fromBinary(bin)
+
+    private def fromBinary(bin: ByteString): ExbEventPacket = {
+      val raw = unmarshall(bin)
+
+      val arr = Array(
+        raw.body(0),
+        raw.body(1),
+        raw.body(2),
+        raw.body(3)
+      )
+
+      val wrapped = ByteBuffer.wrap(arr)
+      val eid = wrapped.getInt()
+
+      new ExbEventPacket(raw.tid, eid, raw.`type` == Constants.TYPE_EVENTC, raw.body.slice(4, raw.body.size))
+    }
+
+    private def toBinary(tid: Int, confirmed: Boolean, eid: Int, payload: ByteString): ByteString =  {
+      val bin: Array[Byte] = Array.fill(4 + payload.length)(0)
+
+      val buffer = ByteBuffer.allocate(4) //PREAMBLE
+      buffer.putInt(eid)
+      bin(0) = buffer.get(0)
+      bin(1) = buffer.get(1)
+      bin(2) = buffer.get(2)
+      bin(3) = buffer.get(3)
+
+      if (payload.nonEmpty)
+        System.arraycopy(payload.toArray, 0, bin, 4, payload.length)
+
+      marshall(tid, if (confirmed) Constants.TYPE_EVENTC else Constants.TYPE_EVENT, ByteString(bin))
+    }
+  }
+
+  class ExbEventPacket(override val tid: Int, val eid: Int, val confirmed: Boolean, val payload: ByteString) extends BasicExbPacket
+
+  //-----------------------------------------------------------------------------------------------
+
+  object ExbEventAckPacket {
+    def apply(tid: Int, result: Byte): ByteString = toBinary(tid, result)
+    def apply(bin: ByteString): ExbEventAckPacket = fromBinary(bin)
+
+    private def fromBinary(bin: ByteString): ExbEventAckPacket = {
+      val raw = unmarshall(bin)
+
+      new ExbEventAckPacket(raw.tid, raw.body(0))
+    }
+
+    private def toBinary(tid: Int, result: Byte): ByteString =  {
+      marshall(tid, Constants.TYPE_EVENT_ACK, ByteString(Array(result)))
+    }
+  }
+
+  class ExbEventAckPacket(override val tid: Int, val result: Byte) extends BasicExbPacket
 
   //-----------------------------------------------------------------------------------------------
 

@@ -42,6 +42,7 @@ class ScriptThread(scriptEnv: ScriptEnvInstance, engine: ScriptEngine, script: S
     context.setAttribute("nsd", scriptEnv.nsd, ScriptContext.ENGINE_SCOPE)
     context.setAttribute("storage", scriptEnv.storage, ScriptContext.ENGINE_SCOPE)
     context.setAttribute("http", scriptEnv.http, ScriptContext.ENGINE_SCOPE)
+    context.setAttribute("events", scriptEnv.events, ScriptContext.ENGINE_SCOPE)
     context.setAttribute("exit", () => 0, ScriptContext.ENGINE_SCOPE)
     context.setAttribute("quit", () => 0, ScriptContext.ENGINE_SCOPE)
 
