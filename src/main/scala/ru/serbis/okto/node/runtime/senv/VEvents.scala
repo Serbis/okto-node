@@ -161,9 +161,9 @@ class VEvents(eventer: ActorRef, executor: ActorRef) extends StreamLogger {
       case e: HardwareEvent =>
         val exist = hwEventsFilter.find(v => v._1 == e.eid && v._2.contains(e.addr))
         if (exist.isDefined) {
+          eventsQueue.offer(e)
           if (recvSem.availablePermits() == 0)
             recvSem.release()
-          eventsQueue.offer(e)
         }
       case _ =>
     }

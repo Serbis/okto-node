@@ -29,7 +29,7 @@ class VBridgeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
         target.req(0, "a")
       }
       serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
-      serialBridge.reply(SerialBridge.Responses.ExbResponse("b"))
+      serialBridge.reply(SerialBridge.Responses.ExbResponse("b", "-"))
       var result = Await.result(shellFut, 1 second)
       result.error shouldEqual 0
       result.result shouldEqual "b"
@@ -39,7 +39,7 @@ class VBridgeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
         target.req(0, "a")
       }
       serialBridge.expectMsg(SerialBridge.Commands.ExbCommand("a", 3000))
-      serialBridge.reply(SerialBridge.Responses.ExbError(0, "e"))
+      serialBridge.reply(SerialBridge.Responses.ExbError(0, "e", "-"))
       result = Await.result(shellFut, 1 second)
       result.error shouldEqual 1
       result.result shouldEqual "0/e"
@@ -80,7 +80,7 @@ class VBridgeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
         target.req(1, "a")
       }
       rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
-      rfBridge.reply(RfBridge.Responses.ExbResponse("b"))
+      rfBridge.reply(RfBridge.Responses.ExbResponse("b", "-"))
       result = Await.result(shellFut, 1 second)
       result.error shouldEqual 0
       result.result shouldEqual "b"
@@ -90,7 +90,7 @@ class VBridgeSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSender
         target.req(1, "a")
       }
       rfBridge.expectMsg(RfBridge.Commands.ExbCommand(1, "a", 3000))
-      rfBridge.reply(RfBridge.Responses.ExbError(0, "e"))
+      rfBridge.reply(RfBridge.Responses.ExbError(0, "e", "-"))
       result = Await.result(shellFut, 1 second)
       result.error shouldEqual 1
       result.result shouldEqual "0/e"

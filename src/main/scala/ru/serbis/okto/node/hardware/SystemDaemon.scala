@@ -93,6 +93,7 @@ object SystemDaemon {
       * @param meta request label
       * @param sender originator
       * @param deadline request deadline (time of request starting + request timeout)
+      * @param meta metadata witch will be in transcation complete message
       */
     case class RequestDescriptor(meta: Any, sender: ActorRef, deadline: Long)
   }

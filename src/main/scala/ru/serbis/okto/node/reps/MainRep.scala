@@ -5,7 +5,7 @@ import java.nio.file.{Files, LinkOption, Path, Paths}
 
 import akka.actor.{Actor, Props, Stash}
 import akka.pattern.pipe
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigList}
 import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.{Logger, StreamLogger}
 import shapeless.Path
@@ -70,6 +70,7 @@ object MainRep {
     /** Response for GetUartConfiguration message */
     case class HardwareConfiguration(
       emulation:  Boolean,
+      cmdRecover: List[List[String]],
       uartConfiguration: UartConfiguration,
       nsdConfiguration: NsdConfiguration,
       rfConfiguration: RfConfiguration
@@ -483,6 +484,18 @@ class MainRep(confName: String) extends Actor with StreamLogger with Stash {
         logger.warning(s"Error reading configuration parameter node-> hardware -> emulation. The default value of 'false' is returned. Error reason: ${r.getMessage}")
         false
     }
+    val cmdRecover = Try {
+      config.get.getList("node.hardware.cmdRecover").asScala.toList
+        .map(v => List(
+          v.asInstanceOf[ConfigList].get(0).unwrapped().asInstanceOf[String],
+          v.asInstanceOf[ConfigList].get(1).unwrapped().asInstanceOf[String]
+        ))
+    } recover {
+      case r =>
+        logger.warning(s"Error reading configuration parameter node-> hardware -> cmdRecover. The default value of '[]' is returned. Error reason: ${r.getMessage}")
+        List.empty
+    }
+
     val uartConfiguration = UartConfiguration(bridgeDevice.get, bridgeBaud.get, bridgeResponseCleanInterval.get, bridgeMaxReq.get)
     val nsdConfiguration = NsdConfiguration(nsdSocket.get, nsdResponseCleanInterval.get, nsdMaxReq.get)
     val rfConfiguration = RfConfiguration(
@@ -500,7 +513,7 @@ class MainRep(confName: String) extends Actor with StreamLogger with Stash {
       rfP5Targ.get,
       rfP5Self.get
     )
-    HardwareConfiguration(emulation.get, uartConfiguration, nsdConfiguration, rfConfiguration)
+    HardwareConfiguration(emulation.get, cmdRecover.get, uartConfiguration, nsdConfiguration, rfConfiguration)
   }
 
   def getStorageConfiguration = {

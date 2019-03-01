@@ -1,6 +1,7 @@
 package ru.serbis.okto.node
 
 import java.io.{File, FileInputStream, InputStream}
+import java.math.BigInteger
 import java.nio.file.Files
 import java.security.{KeyStore, SecureRandom}
 import java.util.concurrent.TimeUnit
@@ -16,7 +17,7 @@ import ru.serbis.okto.node.boot.BootManager
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.common.FsmDefaults.{Data, State}
 import ru.serbis.okto.node.events.Eventer
-import ru.serbis.okto.node.hardware.{RfBridge, RfConfigurer, SerialBridge, SystemDaemon}
+import ru.serbis.okto.node.hardware._
 import ru.serbis.okto.node.log.Logger.{LogEntryQualifier, LogLevels}
 import ru.serbis.okto.node.log.{FileLogger, StdOutLogger, StreamLogger}
 import ru.serbis.okto.node.proxy.files.RealFilesProxy
@@ -153,6 +154,14 @@ class Runner extends FSM[State, Data] with StreamLogger {
 
       val eventer = context.system.actorOf(Eventer.props(), "Eventer")
 
+      //--- bridges cmd replicator
+      val replMatrix = cfg.hardwareConfiguration.cmdRecover.map(v => {
+        val addr = if (v.head == "*") None else Some( new BigInteger(v.head, 16).intValue())
+        CmdReplicator.Supply.ReplicationPair(addr, v(1))
+      })
+      logger.info(s"Set command replication matrix to '$replMatrix'")
+      val cmdReplicator = context.system.actorOf(CmdReplicator.props(replMatrix, eventer))
+
       //--- uart
 
       logger.info(s"Set expansion board uart device to '${cfg.hardwareConfiguration.uartConfiguration.device}'")
@@ -165,7 +174,8 @@ class Runner extends FSM[State, Data] with StreamLogger {
         FiniteDuration(cfg.hardwareConfiguration.uartConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
         new RealNativeApiProxy(),
         new RealActorSystemProxy(context.system),
-        eventer), "SerialBridge"
+        eventer,
+        cmdReplicator), "SerialBridge"
       )
 
       //--- nsd
@@ -189,13 +199,18 @@ class Runner extends FSM[State, Data] with StreamLogger {
         FiniteDuration(cfg.hardwareConfiguration.rfConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
         new RealNativeApiProxy(),
         eventer,
+        cmdReplicator,
         new RealActorSystemProxy(context.system)), "RfBridge"
       )
+
+      //--- bridges container for cmd replicator
+      cmdReplicator ! CmdReplicator.Commands.SetBridges(CmdReplicator.Supply.BridgeRefs(serialBridge, rfBridge))
 
       //--- rf configurer
 
       val rfConfigurer = context.system.actorOf(RfConfigurer.props(cfg.hardwareConfiguration.rfConfiguration, rfBridge))
       rfConfigurer ! RfConfigurer.Commands.Exec()
+
 
       //--- virtualization
 

@@ -10,6 +10,7 @@ import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.StreamLogger
 import ru.serbis.okto.node.proxy.napi.NativeApiProxy
 import ru.serbis.okto.node.common.ReachTypes.ReachByteString
+import ru.serbis.okto.node.hardware.CmdReplicator.Supply.SourceBridge
 import ru.serbis.okto.node.proxy.system.ActorSystemProxy
 
 import scala.collection.mutable
@@ -38,9 +39,10 @@ object RfBridge {
             cleanerTime: FiniteDuration = 1 second,
             nap: NativeApiProxy,
             eventer: ActorRef,
+            cmdReplicator: ActorRef,
             system: ActorSystemProxy,
             testMode: Boolean = false) =
-    Props(new RfBridge(socket, maxReq, cleanerTime, nap, eventer, system, testMode))
+    Props(new RfBridge(socket, maxReq, cleanerTime, nap, eventer, cmdReplicator, system, testMode))
 
   object Commands {
 
@@ -50,8 +52,9 @@ object RfBridge {
       * @param addr target network address
       * @param cmd command for exb
       * @param timeout transaction live time
+      * @param meta metadata used to identify the final transaction message
       */
-    case class ExbCommand(addr: Int, cmd: String, timeout: Int)
+    case class ExbCommand(addr: Int, cmd: String, timeout: Int, meta: Any = "-")
 
     /** Set driver pipe matrix. For details see app documentation for understanding the principles of the wireless network
       * system. May respond with: SuccessDriverOperation, BadPipeMatrix, BadPipeMsb, TransactionTimeout, ChipNotRespond
@@ -84,15 +87,17 @@ object RfBridge {
     /** Correct response for ExbCommand message from exb
       *
       * @param payload what respond exb
+      * @param meta transaction marker
       */
-    case class ExbResponse(payload: String)
+    case class ExbResponse(payload: String, meta: Any)
 
     /** Exb receive command initiated by ExbCommand, but some application error was occurred on the exb firmware level
       *
       * @param code error code
       * @param message error message
+      * @param meta transaction marker
       */
-    case class ExbError(code: Int, message: String)
+    case class ExbError(code: Int, message: String, meta: Any)
 
     /** Command initiated by ExbResponse not be reach exb because target network address is not defined in the driver
       * routing table */
@@ -142,8 +147,9 @@ object RfBridge {
       * @param sender originator
       * @param type transaction type, define data expected to back
       * @param deadline request deadline (time of request starting + request timeout)
+      * @param meta metadata witch will be in transcation complete message
       */
-    case class RequestDescriptor(sender: ActorRef, `type`: Int, deadline: Long)
+    case class RequestDescriptor(sender: ActorRef, `type`: Int, deadline: Long, meta: Any)
 
     case class AckEvent(tid: Int, addr: Int, result: Int)
 
@@ -157,6 +163,7 @@ class RfBridge(socket: String,
                cleanerTime: FiniteDuration,
                nap: NativeApiProxy,
                eventer: ActorRef,
+               cmdReplicator: ActorRef,
                system: ActorSystemProxy,
                testMode: Boolean = false) extends Actor with StreamLogger with Timers {
   import RfBridge.Commands._
@@ -223,16 +230,17 @@ class RfBridge(socket: String,
   override def receive = {
 
     /** See the message description */
-    case ExbCommand(addr, cmd, timeout) =>
+    case ExbCommand(addr, cmd, timeout, meta) =>
       implicit val logQualifier = LogEntryQualifier("ExbCommand")
 
       val tid = if (reqTable.isEmpty) 1 else reqTable.maxBy(_._1)._1 + 1
       if (reqTable.size < maxReq) {
-        logger.debug(s"Start exb command transaction '$tid' to address '$addr' with payload '$cmd' and timeout '$timeout' from the requestor '${sender.path.name}'")
-        reqTable += tid -> RequestDescriptor(sender, TtExbCommand, System.currentTimeMillis() + timeout)
+        logger.debug(s"Start exb command transaction '$tid' to address '${addr.toHexString.toUpperCase()}' with payload '$cmd' and timeout '$timeout' from the requestor '${sender.path.name}'")
+        reqTable += tid -> RequestDescriptor(sender, TtExbCommand, System.currentTimeMillis() + timeout, meta)
+        cmdReplicator ! CmdReplicator.Commands.Replic(addr, cmd, SourceBridge.RfBridge)
         nap.unixDomainWrite(sockfd, WsdTransmitPacket(tid, addr, ExbCommandPacket(tid, cmd)).toArray)
       } else {
-        logger.warning(s"Unable to exec command transaction '$tid' to address '$addr' with payload '$cmd' and timeout '$timeout' from the requestor '${sender.path.name}'. Driver is overloaded")
+        logger.warning(s"Unable to exec command transaction '$tid' to address '${addr.toHexString.toUpperCase()}' with payload '$cmd' and timeout '$timeout' from the requestor '${sender.path.name}'. Driver is overloaded")
         sender ! BridgeOverload
       }
 
@@ -243,7 +251,7 @@ class RfBridge(socket: String,
       val tid = if (reqTable.isEmpty) 1 else reqTable.maxBy(_._1)._1 + 1
 
       logger.debug(s"Start set pipe matrix transaction '$tid' with matrix '$matrix' from the requestor '${sender.path.name}'")
-      reqTable += tid -> RequestDescriptor(sender, TtSetPipeMatrix, System.currentTimeMillis() + ( if (testMode) 500 else 5000 ))
+      reqTable += tid -> RequestDescriptor(sender, TtSetPipeMatrix, System.currentTimeMillis() + ( if (testMode) 500 else 5000 ), "-")
       nap.unixDomainWrite(sockfd, WsdSetPipeMatrixPacket(tid, matrix.toWsdPipeMatrix).toArray)
 
     /** Event ack processing. This message generated by EventConfirmator and contain confirmation result */
@@ -258,6 +266,7 @@ class RfBridge(socket: String,
 
       val rd = reqTable.get(tid)
       if (rd.isDefined) { // If tid exist, this is transaction initiated by node
+        val meta = reqTable(tid).meta
         reqTable -= tid
 
         rd.get.`type` match {
@@ -266,13 +275,13 @@ class RfBridge(socket: String,
               case p: WsdReceivePacket =>
                 p.exbp match {
                   case ep: ExbResponsePacket =>
-                    logger.debug(s"Compete exb command transaction '${p.tid}' to address '${p.addr}' with result '${ep.response}'")
-                    rd.get.sender ! ExbResponse(ep.response)
+                    logger.debug(s"Compete exb command transaction '${p.tid}' to address '${p.addr.toHexString.toUpperCase()}' with result '${ep.response}'")
+                    rd.get.sender ! ExbResponse(ep.response, meta)
                   case ep: ExbErrorPacket =>
-                    logger.info(s"Compete exb command transaction '${p.tid}' to address '${p.addr}' with error '${ep.code}/${ep.message}'")
-                    rd.get.sender ! ExbError(ep.code, ep.message)
+                    logger.info(s"Compete exb command transaction '${p.tid}' to address '${p.addr.toHexString.toUpperCase()}' with error '${ep.code}/${ep.message}'")
+                    rd.get.sender ! ExbError(ep.code, ep.message, meta)
                   case _ =>
-                    logger.warning(s"Compete exb command transaction '${p.tid}' to address '${p.addr}' as exb broken response")
+                    logger.warning(s"Compete exb command transaction '${p.tid}' to address '${p.addr.toHexString.toUpperCase()}' as exb broken response")
                     rd.get.sender ! ExbBrokenResponse
                 }
               case p: WsdErrorPacket =>

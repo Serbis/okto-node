@@ -101,8 +101,8 @@ class ExbPacketSpec  extends WordSpecLike with Matchers {
     "serialized and deserialized as TYPE_EVENT" in {
       val bin = ExbEventPacket(99, 299, confirmed = false, ByteString("abc"))
       val packet = ExbEventPacket(bin)
-      packet.eid shouldEqual 99
-      packet.tid shouldEqual 299
+      packet.eid shouldEqual 299
+      packet.tid shouldEqual 99
       packet.confirmed shouldEqual false
       packet.payload shouldEqual ByteString("abc")
     }
@@ -110,8 +110,8 @@ class ExbPacketSpec  extends WordSpecLike with Matchers {
     "serialized and deserialized as TYPE_EVENTC" in {
       val bin = ExbEventPacket(99, 299, confirmed = true, ByteString("abc"))
       val packet = ExbEventPacket(bin)
-      packet.eid shouldEqual 99
-      packet.tid shouldEqual 299
+      packet.eid shouldEqual 299
+      packet.tid shouldEqual 99
       packet.confirmed shouldEqual true
       packet.payload shouldEqual ByteString("abc")
     }
@@ -119,8 +119,8 @@ class ExbPacketSpec  extends WordSpecLike with Matchers {
     "ExbPacket should correct deserialize type as TYPE_EVENT" in {
       val bin = ExbEventPacket(99, 299, confirmed = false, ByteString("abc"))
       val packet = ExbPacket(bin).asInstanceOf[ExbEventPacket]
-      packet.eid shouldEqual 99
-      packet.tid shouldEqual 299
+      packet.eid shouldEqual 299
+      packet.tid shouldEqual 99
       packet.confirmed shouldEqual false
       packet.payload shouldEqual ByteString("abc")
     }
@@ -128,8 +128,8 @@ class ExbPacketSpec  extends WordSpecLike with Matchers {
     "ExbPacket should correct deserialize type as TYPE_EVENTC" in {
       val bin = ExbEventPacket(99, 299, confirmed = true, ByteString("abc"))
       val packet = ExbPacket(bin).asInstanceOf[ExbEventPacket]
-      packet.eid shouldEqual 99
-      packet.tid shouldEqual 299
+      packet.eid shouldEqual 299
+      packet.tid shouldEqual 99
       packet.confirmed shouldEqual true
       packet.payload shouldEqual ByteString("abc")
     }

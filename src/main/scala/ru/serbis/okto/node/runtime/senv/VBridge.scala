@@ -33,10 +33,10 @@ class VBridge(serialBridge: ActorRef, rfBridge: ActorRef) extends StreamLogger {
       if (addr == 0) {
         logger.debug(s"Send request to the SerialBridge [ req='$req' ] ")
         Await.result(serialBridge.ask(SerialBridge.Commands.ExbCommand(req, 3000))(5 second), 5 second) match {
-          case SerialBridge.Responses.ExbResponse(resp) =>
+          case SerialBridge.Responses.ExbResponse(resp, _) =>
             logger.debug(s"Received exb response from wired exb [ req='$req', resp='$resp' ]")
             new BridgeReqResult(0, resp)
-          case SerialBridge.Responses.ExbError(code, message) =>
+          case SerialBridge.Responses.ExbError(code, message, _) =>
             logger.debug(s"Received exb error from wired exb [ req='$req', code='$code', message='$message' ]")
             new BridgeReqResult(1, s"$code/$message")
           case SerialBridge.Responses.BridgeOverload =>
@@ -52,10 +52,10 @@ class VBridge(serialBridge: ActorRef, rfBridge: ActorRef) extends StreamLogger {
       } else {
         logger.debug(s"Send request to the RfBridge [ addr=$addr, req='$req' ] ")
         Await.result(rfBridge.ask(RfBridge.Commands.ExbCommand(addr, req, 3000))(5 second), 5 second) match {
-          case RfBridge.Responses.ExbResponse(resp) =>
+          case RfBridge.Responses.ExbResponse(resp, _) =>
             logger.debug(s"Received exb response [ addr=$addr, req='$req', resp='$resp' ]")
             new BridgeReqResult(0, resp)
-          case RfBridge.Responses.ExbError(code, message) =>
+          case RfBridge.Responses.ExbError(code, message, _) =>
             logger.debug(s"Received exb error [ addr=$addr, req='$req', code='$code', message='$message' ]")
             new BridgeReqResult(1, s"$code/$message")
           case RfBridge.Responses.ExbAddrNotDefined =>

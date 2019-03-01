@@ -59,7 +59,7 @@ class Eventer extends Actor with StreamLogger {
   import Eventer.Commands._
   import Eventer.Responses._
 
-  setLogSourceName(s"Eventer*${self.path.name}")
+  setLogSourceName(s"Eventer")
   setLogKeys(Seq("Eventer"))
   implicit val logQualifier = LogEntryQualifier("static")
 
@@ -103,8 +103,6 @@ class Eventer extends Actor with StreamLogger {
         logger.debug(s"Actor was subscribed as watcher [ref=${ref.path.name.toString}]")
         watchers = watchers + ref
       }
-
-
 
       sender() ! Subscribed
 

@@ -9,6 +9,7 @@ import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.StreamLogger
 import ru.serbis.okto.node.proxy.napi.NativeApiProxy
 import ru.serbis.okto.node.common.ReachTypes.ReachByteString
+import ru.serbis.okto.node.hardware.CmdReplicator.Supply.SourceBridge
 import ru.serbis.okto.node.hardware.packets.WsdPacket.WsdTransmitPacket
 import ru.serbis.okto.node.proxy.system.ActorSystemProxy
 
@@ -38,8 +39,9 @@ object SerialBridge {
             cleanerTime: FiniteDuration = 1 second,
             nap: NativeApiProxy,
             system: ActorSystemProxy,
-            eventer: ActorRef) =
-    Props(new SerialBridge(device, baud, maxReq, cleanerTime, nap, system, eventer))
+            eventer: ActorRef,
+            cmdReplicator: ActorRef) =
+    Props(new SerialBridge(device, baud, maxReq, cleanerTime, nap, system, eventer, cmdReplicator))
 
   object Commands {
 
@@ -48,8 +50,9 @@ object SerialBridge {
       *
       * @param cmd command for exb
       * @param timeout transaction live time
+      * @param meta metadata used to identify the final transaction message
       */
-    case class ExbCommand(cmd: String, timeout: Int)
+    case class ExbCommand(cmd: String, timeout: Int, meta: Any = "-")
   }
 
   object Responses {
@@ -57,15 +60,17 @@ object SerialBridge {
     /** Correct response for ExbCommand message from exb
       *
       * @param payload what respond exb
+      * @param meta transaction marker
       */
-    case class ExbResponse(payload: String)
+    case class ExbResponse(payload: String, meta: Any)
 
     /** Exb receive command initiated by ExbCommand, but some application error was occurred on the exb firmware level
       *
       * @param code error code
       * @param message error message
+      * @param meta transaction marker
       */
-    case class ExbError(code: Int, message: String)
+    case class ExbError(code: Int, message: String, meta: Any)
 
     /** Exb respond with broken packet */
     case object ExbBrokenResponse
@@ -93,7 +98,7 @@ object SerialBridge {
       * @param sender originator
       * @param deadline request deadline (time of request starting + request timeout)
       */
-    case class RequestDescriptor(sender: ActorRef, deadline: Long)
+    case class RequestDescriptor(sender: ActorRef, deadline: Long, meta: Any)
   }
 }
 
@@ -103,7 +108,8 @@ class SerialBridge(device: String,
                    cleanerTime: FiniteDuration = 1 second,
                    nap: NativeApiProxy,
                    system: ActorSystemProxy,
-                   eventer: ActorRef) extends Actor with StreamLogger with Timers {
+                   eventer: ActorRef,
+                   cmdReplicator: ActorRef) extends Actor with StreamLogger with Timers {
   import SerialBridge.Commands._
   import SerialBridge.Internals._
   import SerialBridge.Responses._
@@ -173,13 +179,14 @@ class SerialBridge(device: String,
   override def receive = {
 
     /** See the message description */
-    case ExbCommand(cmd, timeout) =>
+    case ExbCommand(cmd, timeout, meta) =>
       implicit val logQualifier = LogEntryQualifier("ExbCommand")
 
       val tid = if (reqTable.isEmpty) 1 else reqTable.maxBy(_._1)._1 + 1
       if (reqTable.size < maxReq) {
         logger.debug(s"Start exb command transaction '$tid' to uart with payload '$cmd' and timeout '$timeout' from the requestor '${sender.path.name}'")
-        reqTable += tid -> RequestDescriptor(sender, System.currentTimeMillis() + timeout)
+        reqTable += tid -> RequestDescriptor(sender, System.currentTimeMillis() + timeout, meta)
+        cmdReplicator ! CmdReplicator.Commands.Replic(0, cmd, SourceBridge.SerialBridge)
         nap.serialPuts(serfd, ExbCommandPacket(tid, cmd).toArray)
       } else {
         logger.warning(s"Unable to exec command transaction '$tid' to uart with payload '$cmd' and timeout '$timeout' from the requestor '${sender.path.name}'. Uart is overloaded")
@@ -199,12 +206,12 @@ class SerialBridge(device: String,
         case ep: ExbResponsePacket =>
           finishRequest(ep.tid) { d =>
             logger.debug(s"Compete exb command transaction '${ep.tid}' to uart with result '${ep.response}'")
-            d.sender ! ExbResponse(ep.response)
+            d.sender ! ExbResponse(ep.response, d.meta)
           }
         case ep: ExbErrorPacket =>
           finishRequest(ep.tid) { d =>
             logger.info(s"Compete exb command transaction '${ep.tid}' to uart with error '${ep.code}/${ep.message}'")
-            d.sender ! ExbError(ep.code, ep.message)
+            d.sender ! ExbError(ep.code, ep.message, d.meta)
           }
 
         case ep: ExbEventPacket if ep.confirmed =>
