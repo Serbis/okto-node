@@ -3,6 +3,7 @@ package ru.serbis.okto.node.syscoms.pm
 import akka.actor.{ActorRef, FSM, Props}
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.common.FsmDefaults.{Data, State}
+import ru.serbis.okto.node.common.NodeUtils.getOptions
 import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.StreamLogger
 import ru.serbis.okto.node.reps.UsercomsRep
@@ -34,7 +35,7 @@ object PmList {
     /** n/c */
     case object Uninitialized extends Data
     /** n/c */
-    case object InWaitConfigBatch extends Data
+    case class InWaitConfigBatch(targetName: Option[String]) extends Data
   }
 
   object Commands {
@@ -63,8 +64,11 @@ class PmList(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Actor
   when(Idle, 5 second) {
     case Event(Exec, _) =>
       orig = sender()
+
+      val options = getOptions(nextArgs)
+
       env.usercomsRep ! UsercomsRep.Commands.GetCommandsBatch(List.empty)
-      goto(WaitConfigBatch) using InWaitConfigBatch
+      goto(WaitConfigBatch) using InWaitConfigBatch(options.get("-name"))
 
     //NOT TESTABLE
     case Event(StateTimeout, _) =>
@@ -78,8 +82,25 @@ class PmList(nextArgs: Vector[String], env: Env, stdInt: ActorRef, stdOut: Actor
 
     /** List with commands definitions. This list transforms to the nl separated string and return as result of the
       * command */
-    case Event(UsercomsRep.Responses.CommandsBatch(batch), _) =>
-      orig ! Pm.Internals.Complete(0, batch.foldLeft("")((a, v) => a + s"${v._1}\n").dropRight(1))
+    case Event(UsercomsRep.Responses.CommandsBatch(batch), InWaitConfigBatch(name)) =>
+      val c = "\""
+      val nb = if (name.isDefined) {
+        val r = batch.find(v => if (v._2.isDefined) v._2.get.name == name.get else false)
+        if (r.isDefined) List(r.get) else List.empty
+      } else
+        batch
+
+      val body = nb.foldLeft("")((a, v) => {
+        if (v._2.isDefined) {
+          val d = v._2.get
+          val users = d.users.foldLeft("")((a, v) => s"$a$c$v$c, ").dropRight(2)
+          val groups = d.groups.foldLeft("")((a, v) => s"$a$c$v$c, ").dropRight(2)
+          s"$a\t{\n\t\t${c}name$c: $c${d.name}$c,\n\t\t${c}users$c: [$users],\n\t\t${c}groups$c: [$groups]\n\t},\n"
+        } else
+          a
+      }).dropRight(2)
+
+      orig ! Pm.Internals.Complete(0, s"[\n$body\n]")
       stop
 
     /** Repository does not respond with expected timeout. Command terminates with failure */

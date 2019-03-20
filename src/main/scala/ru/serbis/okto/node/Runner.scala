@@ -12,6 +12,7 @@ import akka.http.scaladsl.{ConnectionContext, Http, HttpsConnectionContext}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
+import ru.serbis.okto.node.access.AccessRep
 import ru.serbis.okto.node.adapter.RestLayer
 import ru.serbis.okto.node.boot.BootManager
 import ru.serbis.okto.node.common.Env
@@ -257,12 +258,14 @@ class Runner extends FSM[State, Data] with StreamLogger {
 
           val systemCommandsRep = context.system.actorOf(SyscomsRep.props(s"${data.workDir}/syscoms.conf"), "SyscomsRep")
           val userCommandsRep = context.system.actorOf(UsercomsRep.props(s"${data.workDir}/usercoms.conf"), "UsercomsRep")
+          val accessRep = context.system.actorOf(AccessRep.props(s"${data.workDir}/access.conf", new RealFilesProxy), "AccessRep")
           val scriptsRep = context.system.actorOf(ScriptsRep.props(s"${data.workDir}/ucmd", cfg.virtualizationConfiguration.scriptCacheTime, cfg.virtualizationConfiguration.scriptCacheCleanInterval), "ScriptsRep")
           val bootRep = context.system.actorOf(BootRep.props(s"${data.workDir}/boot.conf"), "BootRep")
 
           val env = Env(
             syscomsRep = systemCommandsRep,
             usercomsRep = userCommandsRep,
+            accessRep = accessRep,
             scriptsRep = scriptsRep,
             bootRep = bootRep,
             serialBridge = serialBridge,

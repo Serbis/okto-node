@@ -2,14 +2,17 @@ package ru.serbis.okto.node.reps
 
 import java.io.File
 import java.nio.file.{Files, StandardOpenOption}
+import java.util
+
 import akka.actor.{Actor, Props, Stash}
 import akka.pattern.pipe
 import akka.util.ByteString
-import com.typesafe.config.{Config, ConfigFactory, ConfigObject}
+import com.typesafe.config.{Config, ConfigFactory, ConfigList, ConfigObject}
 import ru.serbis.okto.node.common.ReachTypes.ReachList
 import ru.serbis.okto.node.log.Logger.LogEntryQualifier
 import ru.serbis.okto.node.log.StreamLogger
 import ru.serbis.okto.node.reps.UsercomsRep.Responses.UserCommandDefinition
+
 import collection.JavaConverters._
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -61,7 +64,7 @@ object UsercomsRep {
       * @param name command name
       * @param file a file that implements the logic of a command
       */
-    case class UserCommandDefinition(name: String, file: String)
+    case class UserCommandDefinition(name: String, file: String, users: Vector[String] = Vector.empty, groups: Vector[String] = Vector.empty)
 
     /** Reply to the message GetCommandsBatch. It is an associative array, where the keys are the names of the
       * requested commands, and the values are optional values. The optional value can contain either the definition
@@ -130,13 +133,23 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
       withConf {
         if (fileOperation) {
           stash()
-          println("Stashed")
         } else {
           if (config.get.hasPath(s"$cmd") || config.get.hasPath(s""""$cmd\"""")) {
             val nConf = config.get.root().asScala.foldLeft("")((a, v) => {
-              if (v._1 != cmd)
-                s"$a${"\""}${v._1}${"\""} {\n  file = ${"\""}${v._2.asInstanceOf[ConfigObject].get("file").unwrapped()}${"\""}\n}\n"
-              else
+              if (v._1 != cmd) {
+                val file = v._2.asInstanceOf[ConfigObject].get("file").unwrapped()
+                val users = try {
+                  v._2.asInstanceOf[ConfigObject].get("users").asInstanceOf[ConfigList].unwrapped().asInstanceOf[util.ArrayList[String]].asScala.toVector
+                } catch { case _: Throwable => Vector.empty }
+                val groups = try {
+                  v._2.asInstanceOf[ConfigObject].get("groups").asInstanceOf[ConfigList].unwrapped().asInstanceOf[util.ArrayList[String]].asScala.toVector
+                } catch { case _: Throwable => Vector.empty }
+                val usersStr = users.foldLeft("")((a, v) => s"$a${"\""}$v${"\""}, ").dropRight(2)
+                val groupsStr = groups.foldLeft("")((a, v) => s"$a${"\""}$v${"\""}, ").dropRight(2)
+
+                s"$a${"\""}${v._1}${"\""} {\n  file = ${"\""}${file}${"\""}\n  users = [$usersStr]\n  groups = [$groupsStr]\n}\n"
+                //s"$a${"\""}${v._1}${"\""} {\n  file = ${"\""}${v._2.asInstanceOf[ConfigObject].get("file").unwrapped()}${"\""}\n}\n"
+              } else
                 a
             })
             val orig = sender()
@@ -174,7 +187,22 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
         } else {
             val inName = in.head
             val result = Try {
-              val definition = UserCommandDefinition(inName, config.get.getString(s"${"\""}$inName${"\""}.file"))
+              val file = config.get.getString(s"${"\""}$inName${"\""}.file")
+              val users = try {
+                config.get.getAnyRef(s"${"\""}$inName${"\""}.users").asInstanceOf[util.ArrayList[String]].asScala.toVector
+              } catch {
+                case e: Throwable =>
+                  logger.error(s"Unable to read users list [name=$inName, reason=${e.getMessage}]")
+                  Vector.empty
+              }
+              val groups = try {
+                config.get.getAnyRef(s"${"\""}$inName${"\""}.groups").asInstanceOf[util.ArrayList[String]].asScala.toVector
+              } catch {
+                case e: Throwable =>
+                  logger.error(s"Unable to read groups list [name=$inName, reason=${e.getMessage}]")
+                  Vector.empty
+              }
+              val definition = UserCommandDefinition(inName, file, users, groups)
               logger.debug(s"System command definition $definition was read from the configuration")
               Some(definition)
             } recover {
@@ -193,7 +221,14 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
         } else {
           val batch = CommandsBatch(config.get.root().asScala.foldLeft(Map.empty[String, Option[UserCommandDefinition]])((a, v) => {
             try {
-              a + (v._1 -> Some(UserCommandDefinition(v._1, v._2.asInstanceOf[ConfigObject].get("file").unwrapped().toString)))
+              val file = v._2.asInstanceOf[ConfigObject].get("file").unwrapped().toString
+              val users = try {
+                v._2.asInstanceOf[ConfigObject].get("users").asInstanceOf[ConfigList].unwrapped().asInstanceOf[util.ArrayList[String]].asScala.toVector
+              } catch { case _: Throwable => Vector.empty }
+              val groups = try {
+                v._2.asInstanceOf[ConfigObject].get("groups").asInstanceOf[ConfigList].unwrapped().asInstanceOf[util.ArrayList[String]].asScala.toVector
+              } catch { case _: Throwable => Vector.empty }
+              a + (v._1 -> Some(UserCommandDefinition(v._1, file, users, groups)))
             } catch {
               case e: Throwable =>
                 logger.warning(s"Fragmentary error while create command list at command '${v._1}'. Reason: '${e.getMessage}'")
@@ -220,7 +255,9 @@ class UsercomsRep(confName: String, testMode: Boolean) extends Actor with Stream
             Future {
               try {
                 if (testMode) Thread.sleep(2000)
-                Files.write(configFile.toPath, ByteString(s"${"\""}${df.name}${"\""} {\n  file = ${"\""}${df.file}${"\""}\n}\n").toArray, StandardOpenOption.APPEND)
+                val users = df.users.foldLeft("")((a, v) => s"$a${"\""}$v${"\""}, ").dropRight(2)
+                val groups = df.groups.foldLeft("")((a, v) => s"$a${"\""}$v${"\""}, ").dropRight(2)
+                Files.write(configFile.toPath, ByteString(s"${"\""}${df.name}${"\""} {\n  file = ${"\""}${df.file}${"\""}\n  users = [$users]\n  groups = [$groups]\n}\n").toArray, StandardOpenOption.APPEND)
                 orig ! Created
                 fileOperation = false
                 logger.info(s"Created new definition for command '${df.name}'")

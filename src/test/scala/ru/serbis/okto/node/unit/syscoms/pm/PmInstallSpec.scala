@@ -34,7 +34,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target, PmInstall.Commands.Exec)
       stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString().prompt))
       stdIn.send(target, Stream.Responses.Data(ByteString("code").eoi))
-      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js")))
+      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
       usercomsRep.reply(UsercomsRep.Responses.Created)
       scriptsRep.expectMsg(ScriptsRep.Commands.Create("a", "code"))
       scriptsRep.reply(ScriptsRep.Responses.Created)
@@ -116,7 +116,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target, PmInstall.Commands.Exec)
       stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString().prompt))
       stdIn.send(target, Stream.Responses.Data(ByteString("code").eoi))
-      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js")))
+      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
       usercomsRep.reply(UsercomsRep.Responses.Exist)
       probe.expectMsg(Pm.Internals.Complete(14, "Command already installed"))
     }
@@ -133,7 +133,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target, PmInstall.Commands.Exec)
       stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString().prompt))
       stdIn.send(target, Stream.Responses.Data(ByteString("code").eoi))
-      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js")))
+      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
       usercomsRep.reply(UsercomsRep.Responses.WriteError)
       probe.expectMsg(Pm.Internals.Complete(15, "Configuration IO error"))
     }
@@ -150,7 +150,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target, PmInstall.Commands.Exec)
       stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString().prompt))
       stdIn.send(target, Stream.Responses.Data(ByteString("code").eoi))
-      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js")))
+      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
       probe.expectMsg(Pm.Internals.Complete(16, "Internal error type 0"))
     }
 
@@ -166,7 +166,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target, PmInstall.Commands.Exec)
       stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString().prompt))
       stdIn.send(target, Stream.Responses.Data(ByteString("code").eoi))
-      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js")))
+      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
       usercomsRep.reply(UsercomsRep.Responses.Created)
       scriptsRep.expectMsg(ScriptsRep.Commands.Create("a", "code"))
       usercomsRep.reply(ScriptsRep.Responses.WriteError)
@@ -185,7 +185,7 @@ class PmInstallSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSend
       probe.send(target, PmInstall.Commands.Exec)
       stdOut.expectMsg(Stream.Commands.WriteWrapped(ByteString().prompt))
       stdIn.send(target, Stream.Responses.Data(ByteString("code").eoi))
-      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js")))
+      usercomsRep.expectMsg(UsercomsRep.Commands.Create(UsercomsRep.Responses.UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
       usercomsRep.reply(UsercomsRep.Responses.Created)
       scriptsRep.expectMsg(ScriptsRep.Commands.Create("a", "code"))
       probe.expectMsg(Pm.Internals.Complete(18, "Internal error type 1"))

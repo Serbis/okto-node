@@ -11,13 +11,19 @@ import ru.serbis.okto.node.testut.{ActorSystemExpander, RealActorSystem}
 
 import scala.concurrent.duration._
 
-/** Performs operations with node's boot system. Options:
+/** Performs operations with node's access system. Options:
   *
-  * --info:   return info about boot commands as json
+  * user  : performs operations with users. Has next suboptions
+  *   add name=xxx password=xxx permissions=xxx,yyy groups=xxx,yyy  : create new user with specified params
+  *   del _name_  : delete user with specified name
+  *   list  : return all users definitions in the system as json array
+  *   info _name_  : return single user definition
   *
-  * --add: create new boot entry. In -c option specify the command string
-  *
-  * --remove: remove boot entry by it's id specified if first arg after option
+  * group : performs operations with users. Has next suboptions
+  *   add name=xxx permissions=xxx : create new group with specified params
+  *   del _name_ : delete group with specified name
+  *   list  : return all groups definitions in the system as json array
+  *   info _name_  : return single group definition
   *
   */
 object Boot {

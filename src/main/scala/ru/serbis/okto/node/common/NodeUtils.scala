@@ -45,4 +45,14 @@ object NodeUtils {
 
     nextOption(Map(),arglist)
   }
+
+  /** Equal option parser - opt1=val1 opr2=val2*/
+  def getEqualOptions(args: Vector[String]) = {
+    args
+      .filter(v => v.contains("="))
+      .map(v => {
+        val spl = v.split("=")
+        spl.head -> spl(1)
+      }).toMap
+  }
 }

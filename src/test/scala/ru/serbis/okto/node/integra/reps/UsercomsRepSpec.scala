@@ -43,11 +43,11 @@ class UsercomsRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
         val target = system.actorOf(UsercomsRep.props(datFile.getAbsolutePath))
         probe.send(target, UsercomsRep.Commands.GetCommandsBatch(List("a", "x", "b", "y", "c", "z", "d")))
         val exectedDefs = Map(
-          "a" -> Some(UserCommandDefinition("a", "class.a")),
+          "a" -> Some(UserCommandDefinition("a", "class.a", Vector.empty, Vector.empty)),
           "x" -> None,
-          "b" -> Some(UserCommandDefinition("b", "class.b")),
+          "b" -> Some(UserCommandDefinition("b", "class.b", Vector.empty, Vector.empty)),
           "y" -> None,
-          "c" -> Some(UserCommandDefinition("c", "class.c")),
+          "c" -> Some(UserCommandDefinition("c", "class.c", Vector.empty, Vector.empty)),
           "z" -> None,
           "d" -> None
         )
@@ -59,9 +59,9 @@ class UsercomsRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
         val target = system.actorOf(UsercomsRep.props(datFile.getAbsolutePath))
         probe.send(target, UsercomsRep.Commands.GetCommandsBatch(List.empty))
         val exectedDefs = Map(
-          "a" -> Some(UserCommandDefinition("a", "class.a")),
-          "b" -> Some(UserCommandDefinition("b", "class.b")),
-          "c" -> Some(UserCommandDefinition("c", "class.c"))
+          "a" -> Some(UserCommandDefinition("a", "class.a", Vector.empty, Vector.empty)),
+          "b" -> Some(UserCommandDefinition("b", "class.b", Vector.empty, Vector.empty)),
+          "c" -> Some(UserCommandDefinition("c", "class.c", Vector.empty, Vector.empty))
         )
         probe.expectMsg(UsercomsRep.Responses.CommandsBatch(exectedDefs))
       }
@@ -75,8 +75,8 @@ class UsercomsRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
         val target = system.actorOf(UsercomsRep.props(datFile.getAbsolutePath))
         probe.send(target, UsercomsRep.Commands.GetCommandsBatch(List.empty))
         val exectedDefs = Map(
-          "a" -> Some(UserCommandDefinition("a", "a.js")),
-          "c" -> Some(UserCommandDefinition("c", "c.js"))
+          "a" -> Some(UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)),
+          "c" -> Some(UserCommandDefinition("c", "c.js", Vector.empty, Vector.empty))
         )
         probe.expectMsg(UsercomsRep.Responses.CommandsBatch(exectedDefs))
         restoreDatFile()
@@ -87,16 +87,16 @@ class UsercomsRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
       "Write new command definition to usercoms.conf and return Created" in {
         val probe = TestProbe()
         val target = system.actorOf(UsercomsRep.props(datFile.getAbsolutePath))
-        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("x", "x.js")))
+        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("x", "x.js", Vector.empty, Vector.empty)))
         probe.expectMsg(UsercomsRep.Responses.Created)
-        ByteString(Files.readAllBytes(datFile.toPath)).utf8String shouldEqual "a {\n  file = \"class.a\"\n}\nb {\n  file = \"class.b\"\n}\nc {\n  file = \"class.c\"\n}\nd {\n  xxx = \"a\"\n}\nx {\n  file = \"x.js\"\n}\n"
+        ByteString(Files.readAllBytes(datFile.toPath)).utf8String shouldEqual "\"a\" {\n  file = \"class.a\"\n}\n\"b\" {\n  file = \"class.b\"\n}\n\"c\" {\n  file = \"class.c\"\n}\n\"d\" {\n  xxx = \"a\"\n}\n\"x\" {\n  file = \"x.js\"\n}"
         restoreDatFile()
       }
 
       "Return Exist if command already exist in usercoms.conf" in {
         val probe = TestProbe()
         val target = system.actorOf(UsercomsRep.props(datFile.getAbsolutePath))
-        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("a", "a.js")))
+        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("a", "a.js", Vector.empty, Vector.empty)))
         probe.expectMsg(UsercomsRep.Responses.Exist)
       }
 
@@ -106,7 +106,7 @@ class UsercomsRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
         probe.send(target, UsercomsRep.Commands.GetCommandsBatch(List("a")))
         probe.expectMsgType[UsercomsRep.Responses.CommandsBatch]
         deleteDataFile()
-        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("x", "x.js")))
+        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("x", "x.js", Vector.empty, Vector.empty)))
         probe.expectMsg(UsercomsRep.Responses.WriteError)
         restoreDatFile()
       }
@@ -114,8 +114,8 @@ class UsercomsRepSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSe
       "Stash message if some file operation takes place" in {
         val probe = TestProbe()
         val target = system.actorOf(UsercomsRep.props(datFile.getAbsolutePath, testMode = true))
-        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("x", "x.js")))
-        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("y", "y.js")))
+        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("x", "x.js", Vector.empty, Vector.empty)))
+        probe.send(target, UsercomsRep.Commands.Create(UserCommandDefinition("y", "y.js", Vector.empty, Vector.empty)))
         probe.expectNoMessage(1 second)
         probe.expectMsg(UsercomsRep.Responses.Created)
         probe.expectNoMessage(1 second)

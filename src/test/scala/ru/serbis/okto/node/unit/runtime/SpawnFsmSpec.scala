@@ -55,7 +55,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref, scriptsRep = scriptRep.ref)
 
         val target = system.actorOf(SpawnFsm.props(env))
-        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref, "shell"))
+        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js", Vector.empty, Vector.empty), initiator.ref, "shell"))
         scriptRep.expectMsg(ScriptsRep.Commands.GetScript("userEcho.js"))
         scriptRep.reply(ScriptsRep.Responses.Script("xxx"))
 
@@ -78,7 +78,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref, scriptsRep = scriptRep.ref)
 
         val target = system.actorOf(SpawnFsm.props(env))
-        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref, "shell"))
+        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js", Vector.empty, Vector.empty), initiator.ref, "shell"))
         scriptRep.expectMsg(ScriptsRep.Commands.GetScript("userEcho.js"))
         scriptRep.reply(ScriptsRep.Responses.ScriptNotFound)
         probe.expectMsg(Runtime.Responses.SpawnError)
@@ -94,7 +94,7 @@ class SpawnFsmSpec extends TestKit(ActorSystem("TestSystem")) with ImplicitSende
         val env = Env(syscomsRep = systemCommandsRep.ref, usercomsRep = userCommandsRep.ref, runtime = runtime.ref, scriptsRep = scriptRep.ref)
 
         val target = system.actorOf(SpawnFsm.props(env, testMode = true))
-        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js"), initiator.ref, "shell"))
+        probe.send(target, SpawnFsm.Commands.Exec("userEcho", Vector("a"), UserCommandDefinition("userEcho", "userEcho.js", Vector.empty, Vector.empty), initiator.ref, "shell"))
         scriptRep.expectMsg(ScriptsRep.Commands.GetScript("userEcho.js"))
         probe.expectMsg(Runtime.Responses.SpawnError)
       }

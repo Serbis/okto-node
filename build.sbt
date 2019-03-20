@@ -1,6 +1,6 @@
 name := "node_scala"
 
-version := "0.1"
+version := "18"
 
 scalaVersion := "2.12.6"
 
@@ -19,7 +19,7 @@ libraryDependencies ++= Seq(
 //val additionalClasses = file("/usr/share/node")
 //unmanagedClasspath in Compile += additionalClasses
 //unmanagedClasspath in Runtime += additionalClasses
-assemblyJarName in assembly := "node-17.jar"
+assemblyJarName in assembly := "node-18.jar"
 test in assembly := {}
 mainClass in assembly := Some("ru.serbis.okto.node.Main")
 target in javah := file("jni")

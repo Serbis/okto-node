@@ -66,8 +66,8 @@ class SyscomsRep(confName: String) extends Actor with StreamLogger with Stash {
   import SyscomsRep.Internals._
   import SyscomsRep.Responses._
 
-  setLogSourceName(s"SyscallRep*${self.path.name}")
-  setLogKeys(Seq("SyscallRep"))
+  setLogSourceName(s"SyscomsRep*${self.path.name}")
+  setLogKeys(Seq("SyscomsRep"))
 
   implicit val logQualifier = LogEntryQualifier("static")
 

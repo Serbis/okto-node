@@ -11,6 +11,7 @@ import ru.serbis.okto.node.reps.UsercomsRep.Responses.UserCommandDefinition
 import ru.serbis.okto.node.syscoms.shell.Shell
 import ru.serbis.okto.node.common.ReachTypes.ReachVector
 import ru.serbis.okto.node.runtime.app.AppCmdExecutor
+import ru.serbis.okto.node.syscoms.access.Access
 import ru.serbis.okto.node.syscoms.boot.Boot
 import ru.serbis.okto.node.syscoms.pm.Pm
 import ru.serbis.okto.node.syscoms.proc.Proc
@@ -99,6 +100,7 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
             case "storage" => Some(context.system.actorOf(Storage.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "proc" => Some(context.system.actorOf(Proc.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "boot" => Some(context.system.actorOf(Boot.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
+            case "access" => Some(context.system.actorOf(Access.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case _ => None
           }
 

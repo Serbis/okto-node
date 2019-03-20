@@ -1,6 +1,8 @@
 package ru.serbis.okto.node.syscoms.shell
 
 import akka.actor.{ActorRef, FSM, Props}
+import ru.serbis.okto.node.access.AccessCredentials
+import ru.serbis.okto.node.access.AccessCredentials.UserCredentials
 import ru.serbis.okto.node.common.Env
 import ru.serbis.okto.node.common.FsmDefaults.{Data, State}
 import ru.serbis.okto.node.common.ReachTypes.{ReachList, ReachSet}
@@ -10,6 +12,8 @@ import ru.serbis.okto.node.reps.{SyscomsRep, UsercomsRep}
 import ru.serbis.okto.node.runtime.{ProcessConstructor, Runtime}
 import ru.serbis.okto.node.syscoms.shell.StatementsParser.CommandNode
 import ru.serbis.okto.node.common.ReachTypes.ReachVector
+import ru.serbis.okto.node.reps.SyscomsRep.Responses.SystemCommandDefinition
+import ru.serbis.okto.node.reps.UsercomsRep.Responses.UserCommandDefinition
 import ru.serbis.okto.node.runtime.Process
 
 import scala.annotation.tailrec
@@ -43,11 +47,11 @@ object PipePreparator {
     /** n/c */
     case object Uninitialized extends Data
     /** n/c */
-    case class InCollectRepsResponses(sys: Option[SyscomsRep.Responses.CommandsBatch], usr: Option[UsercomsRep.Responses.CommandsBatch]) extends Data
+    case class InCollectRepsResponses(credentials: UserCredentials, sys: Option[SyscomsRep.Responses.CommandsBatch], usr: Option[UsercomsRep.Responses.CommandsBatch]) extends Data
     /** n/c */
-    case class InHandleRepsResults(sys: SyscomsRep.Responses.CommandsBatch, usr: UsercomsRep.Responses.CommandsBatch) extends Data
+    case class InHandleRepsResults(credentials: UserCredentials, sys: SyscomsRep.Responses.CommandsBatch, usr: UsercomsRep.Responses.CommandsBatch) extends Data
     /** n/c */
-    case class InProcessesSpawning(cmdName: String, args: Vector[String]) extends Data
+    case class InProcessesSpawning(credentials: UserCredentials, cmdName: String, args: Vector[String]) extends Data
   }
 
   object Commands {
@@ -56,7 +60,7 @@ object PipePreparator {
       *
       * @param commands list of nodes of commands from the expression parser ast
       */
-    case class Exec(commands: List[CommandNode])
+    case class Exec(credentials: UserCredentials, commands: List[CommandNode])
   }
 
   object Responses {
@@ -73,6 +77,13 @@ object PipePreparator {
       * @param cmd set of nonexistent commands
       */
     case class CommandsNotFound(cmd: Set[String])
+
+    /** The answer is returned if user does not have permissions for run some commands in the pipe do
+      * not exist on the node
+      *
+      * @param cmd set of does not accessed commands
+      */
+    case class AccessError(cmd: Set[String])
 
     /** The answer returned in the event of an unexpected program error in the fsm logic */
     case object InternalError
@@ -109,7 +120,7 @@ class PipePreparator(env: Env, initiator: String, testMode: Boolean) extends FSM
 
   /** Starting state. It sends requests to the repositories of system and user commands */
   when(Idle, 5 second) {
-    case Event(Exec(c), _) =>
+    case Event(Exec(credentials, c), _) =>
       implicit val logQualifier = LogEntryQualifier("Idle_Exec")
       orig = sender()
       commands = c
@@ -118,7 +129,7 @@ class PipePreparator(env: Env, initiator: String, testMode: Boolean) extends FSM
       logger.debug(s"Executed request to configuration for '${stc.toSpacedString}'")
       env.syscomsRep ! SyscomsRep.Commands.GetCommandsBatch(stc)
       env.usercomsRep ! UsercomsRep.Commands.GetCommandsBatch(stc)
-      goto(CollectRepsResponses) using InCollectRepsResponses(None, None)
+      goto(CollectRepsResponses) using InCollectRepsResponses(credentials, None, None)
 
     //NOT TESTABLE
     case Event(StateTimeout, _) =>
@@ -135,7 +146,7 @@ class PipePreparator(env: Env, initiator: String, testMode: Boolean) extends FSM
 
       if (data.sys.isDefined) {
         self ! ProcessResp
-        goto(HandleRepsResults) using InHandleRepsResults(data.sys.get, r)
+        goto(HandleRepsResults) using InHandleRepsResults(data.credentials, data.sys.get, r)
       } else {
         stay using data.copy(usr = Some(r))
       }
@@ -145,7 +156,7 @@ class PipePreparator(env: Env, initiator: String, testMode: Boolean) extends FSM
 
       if (data.usr.isDefined) {
         self ! ProcessResp
-        goto(HandleRepsResults) using InHandleRepsResults(r, data.usr.get)
+        goto(HandleRepsResults) using InHandleRepsResults(data.credentials, r, data.usr.get)
       } else {
         stay using data.copy(sys = Some(r))
       }
@@ -171,8 +182,25 @@ class PipePreparator(env: Env, initiator: String, testMode: Boolean) extends FSM
         val s = data.sys.commandsDef.get(headCommand.name)
         val u = data.usr.commandsDef.get(headCommand.name)
         val cmdDef = if (s.get.isDefined) s.get.get else u.get.get
-        env.runtime ! Runtime.Commands.Spawn(headCommand.name, headCommand.args, cmdDef, self, initiator)
-        goto(ProcessesSpawning) using InProcessesSpawning(headCommand.name, headCommand.args)
+        val mayRun = cmdDef match {  //Check user access for run this command
+          case _: SystemCommandDefinition =>
+            AccessCredentials.isHasPermission(data.credentials, AccessCredentials.Permissions.RunSystemCommands)
+          case t: UserCommandDefinition =>
+            if (AccessCredentials.isHasPermission(data.credentials, AccessCredentials.Permissions.RunScripts)) {
+              if (t.users.contains(data.credentials.user) ||
+                t.groups.intersect(data.credentials.groups.map(v => v.name).toVector).nonEmpty) {
+                true
+              } else false
+            } else false
+        }
+        if (mayRun) {
+          env.runtime ! Runtime.Commands.Spawn(headCommand.name, headCommand.args, cmdDef, self, initiator)
+          goto(ProcessesSpawning) using InProcessesSpawning(data.credentials, headCommand.name, headCommand.args)
+        } else {
+          logger.debug(s"Can not create pipe, current user does not have permission for run some commands '${headCommand.name}'")
+          orig ! AccessError(Set(headCommand.name))
+          stop
+        }
       } else {
         logger.debug(s"Can not create pipe, some commands not found '${notFound.toSpacedString}'")
         orig ! CommandsNotFound(notFound)

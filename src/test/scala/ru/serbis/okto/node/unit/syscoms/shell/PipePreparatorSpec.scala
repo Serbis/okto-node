@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import ru.serbis.okto.node.access.AccessCredentials.{GroupCredentials, Permissions, UserCredentials}
 import ru.serbis.okto.node.common.{CommandsUnion, Env}
 import ru.serbis.okto.node.log.{StdOutLogger, StreamLogger}
 import ru.serbis.okto.node.reps.SyscomsRep.Responses.SystemCommandDefinition
@@ -34,10 +35,11 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val executor = TestProbe()
       val stdIn1 = TestProbe()
       val stdOut1 = TestProbe()
+      val cr = UserCredentials("q", "12345", "xxx", Set(Permissions.All))
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(PipePreparator.props(env, "shell"))
-      probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
         "a" -> Some(SystemCommandDefinition("a.class")),
@@ -48,7 +50,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
         "a" -> None,
         "b" -> None,
-        "c" -> Some(UserCommandDefinition("c", "c.class"))
+        "c" -> Some(UserCommandDefinition("c", "c.class", Vector("q")))
       )))
 
       // этот кусок кода являет заглушкой до разработки полноценного пайпинга. Сейчас PipePreparator возвращает замыкние потоков по первой команде из списка
@@ -60,7 +62,7 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       //REVERSE TEST
 
       val target2 = system.actorOf(PipePreparator.props(env, "shell"))
-      probe.send(target2, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
+      probe.send(target2, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       usercomsRep.expectMsg(UsercomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
         "a" -> None,
@@ -79,15 +81,101 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       probe.expectMsg(PipePreparator.Responses.PipeCircuit(stdIn1.ref, stdOut1.ref))
     }
 
+    "Return AccessError for system command if user does not has permission RunSystemCommands" in {
+      val probe = TestProbe()
+      val usercomsRep = TestProbe()
+      val syscomsRep = TestProbe()
+      val runtime = TestProbe()
+      val cr = UserCredentials("root", "12345", "xxx", Set(Permissions.RunScripts))
+      val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
+
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty))))
+      syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a")))
+      syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
+        "a" -> None
+      )))
+      usercomsRep.expectMsg(UsercomsRep.Commands.GetCommandsBatch(List("a")))
+      usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
+        "a" -> Some(UserCommandDefinition("c", "c.class"))
+      )))
+      probe.expectMsg(PipePreparator.Responses.AccessError(Set("a")))
+    }
+
+    "Return AccessError for script if user does not has permission RunScripts" in {
+      val probe = TestProbe()
+      val usercomsRep = TestProbe()
+      val syscomsRep = TestProbe()
+      val runtime = TestProbe()
+      val cr = UserCredentials("root", "12345", "xxx", Set(Permissions.RunSystemCommands))
+      val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
+
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty))))
+      syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a")))
+      syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
+        "a" -> None
+      )))
+      usercomsRep.expectMsg(UsercomsRep.Commands.GetCommandsBatch(List("a")))
+      usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
+        "a" -> Some(UserCommandDefinition("c", "c.class"))
+      )))
+      probe.expectMsg(PipePreparator.Responses.AccessError(Set("a")))
+    }
+
+    "Return AccessError if user does no included in script users field" in {
+      val probe = TestProbe()
+      val usercomsRep = TestProbe()
+      val syscomsRep = TestProbe()
+      val runtime = TestProbe()
+      val cr = UserCredentials("a", "12345", "xxx", Set(Permissions.RunSystemCommands))
+      val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
+
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty))))
+      syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a")))
+      syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
+        "a" -> None
+      )))
+      usercomsRep.expectMsg(UsercomsRep.Commands.GetCommandsBatch(List("a")))
+      usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
+        "a" -> Some(UserCommandDefinition("c", "c.class", Vector("w", "e", "r"), Vector("a", "s", "d")))
+      )))
+      probe.expectMsg(PipePreparator.Responses.AccessError(Set("a")))
+    }
+
+    "Return AccessError if groups does not included in script groups field" in {
+      val probe = TestProbe()
+      val usercomsRep = TestProbe()
+      val syscomsRep = TestProbe()
+      val runtime = TestProbe()
+      val cr = UserCredentials("a", "12345", "xxx", Set(Permissions.RunSystemCommands), Set(GroupCredentials("f", Set(Permissions.All))))
+      val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
+
+      val target = system.actorOf(PipePreparator.props(env, "shell"))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty))))
+      syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a")))
+      syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
+        "a" -> None
+      )))
+      usercomsRep.expectMsg(UsercomsRep.Commands.GetCommandsBatch(List("a")))
+      usercomsRep.reply(UsercomsRep.Responses.CommandsBatch(Map(
+        "a" -> Some(UserCommandDefinition("c", "c.class", Vector("w", "e", "r"), Vector("a", "s", "d")))
+      )))
+      probe.expectMsg(PipePreparator.Responses.AccessError(Set("a")))
+    }
+
+
     "Return InternalError if CollectRepsResponses timeout was reached" in {
       val probe = TestProbe()
       val usercomsRep = TestProbe()
       val syscomsRep = TestProbe()
       val runtime = TestProbe()
+      val cr = UserCredentials("root", "12345")
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(PipePreparator.props(env, "shell", testMode = true))
-      probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       probe.expectMsg(PipePreparator.Responses.InternalError)
     }
 
@@ -96,10 +184,11 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val usercomsRep = TestProbe()
       val syscomsRep = TestProbe()
       val runtime = TestProbe()
+      val cr = UserCredentials("root", "12345", "xxx", Set(Permissions.All))
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(PipePreparator.props(env, "shell", testMode = true))
-      probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
         "a" -> Some(SystemCommandDefinition("a.class")),
@@ -122,10 +211,11 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val usercomsRep = TestProbe()
       val syscomsRep = TestProbe()
       val runtime = TestProbe()
+      val cr = UserCredentials("root", "12345")
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(PipePreparator.props(env, "shell"))
-      probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
         "a" -> None,
@@ -146,10 +236,11 @@ class PipePreparatorSpec extends TestKit(ActorSystem("TestSystem")) with Implici
       val usercomsRep = TestProbe()
       val syscomsRep = TestProbe()
       val runtime = TestProbe()
+      val cr = UserCredentials("root", "12345", "xxx", Set(Permissions.All))
       val env = Env(usercomsRep = usercomsRep.ref, syscomsRep = syscomsRep.ref, runtime = runtime.ref)
 
       val target = system.actorOf(PipePreparator.props(env, "shell"))
-      probe.send(target, PipePreparator.Commands.Exec(List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
+      probe.send(target, PipePreparator.Commands.Exec(cr, List(CommandNode("a", Vector.empty), CommandNode("b", Vector.empty), CommandNode("c", Vector.empty))))
       syscomsRep.expectMsg(SyscomsRep.Commands.GetCommandsBatch(List("a", "b", "c")))
       syscomsRep.reply(SyscomsRep.Responses.CommandsBatch(Map(
         "a" -> Some(SystemCommandDefinition("a.class")),

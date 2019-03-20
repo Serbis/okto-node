@@ -95,7 +95,7 @@ class ReactiveShellTunnel(env: Env) extends Actor with StreamLogger {
       implicit val logQualifier = LogEntryQualifier("Connected")
       connection = Some(ref)
       logger.debug("New connection source reference was established. Run shell wrapper...")
-      env.runtime ! Runtime.Commands.Spawn("shell", Vector.empty, SystemCommandDefinition(""), self, "tunnel")
+      env.runtime ! Runtime.Commands.Spawn("shell", Vector("tunnel"), SystemCommandDefinition(""), self, "tunnel")
       inSpawn = true
 
     /** See the message description */

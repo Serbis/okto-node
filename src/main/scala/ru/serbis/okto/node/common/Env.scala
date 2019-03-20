@@ -6,6 +6,7 @@ case class Env(
   runtime: ActorRef = ActorRef.noSender,
   syscomsRep: ActorRef = ActorRef.noSender,
   usercomsRep: ActorRef = ActorRef.noSender,
+  accessRep: ActorRef = ActorRef.noSender,
   serialBridge: ActorRef = ActorRef.noSender,
   rfBridge: ActorRef = ActorRef.noSender,
   systemDaemon: ActorRef = ActorRef.noSender,
