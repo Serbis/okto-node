@@ -9,14 +9,6 @@ extern "C" {
 #endif
 /*
  * Class:     ru_serbis_okto_node_hardware_NativeApi__
- * Method:    wiringPiSetupSys
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_wiringPiSetupSys
-  (JNIEnv *, jobject);
-
-/*
- * Class:     ru_serbis_okto_node_hardware_NativeApi__
  * Method:    serialOpen
  * Signature: ([BI)I
  */
@@ -57,10 +49,10 @@ JNIEXPORT jint JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialG
 
 /*
  * Class:     ru_serbis_okto_node_hardware_NativeApi__
- * Method:    serialReadWsdPacket
+ * Method:    serialReadExbPacket
  * Signature: (II)[B
  */
-JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialReadWsdPacket
+JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_serialReadExbPacket
   (JNIEnv *, jobject, jint, jint);
 
 /*
@@ -101,6 +93,14 @@ JNIEXPORT void JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDom
  * Signature: (II)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainReadWsdPacket
+  (JNIEnv *, jobject, jint, jint);
+
+/*
+ * Class:     ru_serbis_okto_node_hardware_NativeApi__
+ * Method:    unixDomainReadNsdPacket
+ * Signature: (II)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainReadNsdPacket
   (JNIEnv *, jobject, jint, jint);
 
 #ifdef __cplusplus

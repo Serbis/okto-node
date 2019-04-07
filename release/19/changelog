@@ -1,0 +1,2 @@
+- Implemented system command sutdown, reboot and wipe
+- Fully refactored nsd for working with bash script instead native logic

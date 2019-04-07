@@ -97,6 +97,8 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
 
   logger.debug("Command logic initialized")
 
+
+
   when(Idle, 5 second) {
     case Event(req: CommandsUnion.Commands.Run, _) =>
       implicit val logQualifier = LogEntryQualifier("Idle_Run")
@@ -363,4 +365,8 @@ class Shell(env: Env, args: Vector[String], systemEx: ActorSystemExpander, testM
   }
 
   initialize()
+
+  override def postStop() = {
+    println("Shell die")
+  }
 }

@@ -1,0 +1,38 @@
+[Unit]
+Description=main node executable module (jsvc)
+After=network.target nsd.service wsd.service
+Requires=nsd.service wsd.service
+
+[Service]
+Type=simple
+PIDFile=/var/run/node.pid
+Environment=PIDFILE=/var/run/node.pid
+Environment=NODE_JAVA_HOME=/usr/lib/jvm/java-8-openjdk-armhf
+Environment=NODE_VERSION=19
+Environment=NODE_CP=/usr/share/node/node-19.jar
+Environment=OPTS=-nodetach
+Environment=ARGS=/usr/share/node
+Environment=USER=node
+Environment=ERRFILE=SYSLOG
+Environment=OUTFILE=/dev/null
+Environment=TARGET_CLASS=ru.serbis.okto.node.daemon.ApplicationDaemon
+Environment=JAVA_OPTS=-Xmx64m
+
+ExecStart=/usr/bin/jsvc \
+            -user ${USER} \
+            -java-home ${NODE_JAVA_HOME} \
+            -pidfile ${PIDFILE} \
+            -errfile ${ERRFILE} \
+            -outfile ${OUTFILE} \
+            ${OPTS} \
+	    ${JAVA_OPTS} \
+            -cp ${NODE_CP} \
+            ${TARGET_CLASS} \
+            ${ARGS}
+
+ExecStop=/usr/bin/jsvc \
+            -pidfile ${PIDFILE} \
+            -stop ${TARGET_CLASS}
+
+[Install]
+WantedBy=multi-user.target

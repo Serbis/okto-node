@@ -383,3 +383,70 @@ JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_u
         }
     }
 }
+
+/*
+ * Class:     ru_serbis_okto_node_hardware_NativeApi__
+ * Method:    unixDomainReadNsdPacket
+ * Signature: (II)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainReadNsdPacket
+  (JNIEnv *env, jobject, jint socket, jint timeout) {
+    RingBufferDef *inBuf  = RINGS_createRingBuffer(65535, RINGS_OVERFLOW_SHIFT, true);
+    uint64_t prbits = WSD_PREAMBLE;
+    uint8_t mode = MODE_PREAMBLE;
+    WsdPacket *packet = NULL;
+    uint16_t sbody = 0;
+
+    while(1) {
+        char ch;
+        fflush(stdout);
+
+        ssize_t r = read(socket, &ch, 1);
+        if (r > 0) { // if some char was received
+            RINGS_write((uint8_t) ch, inBuf);
+            uint16_t dlen = RINGS_dataLenght(inBuf);
+            if (mode == MODE_PREAMBLE) { // If expected preamble form stream
+            	if (dlen >= WSD_PREAMBLE_SIZE) { //If the buffer contain data with size of preamble or more
+            		int r = RINGS_cmpData(dlen - WSD_PREAMBLE_SIZE, (uint8_t*) &prbits, WSD_PREAMBLE_SIZE, inBuf);
+            		if (r == 0) {
+                		//RINGS_dataClear(inBuf);
+                		mode = MODE_HEADER;
+                	}
+                }
+            } else if (mode == MODE_HEADER) {
+                if (dlen >= WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE) {
+                    uint8_t *header = (uint8_t*) malloc(WSD_HEADER_SIZE);
+                	packet = (WsdPacket*) malloc(sizeof(WsdPacket));
+                	RINGS_extractData(inBuf->reader + WSD_PREAMBLE_SIZE, WSD_HEADER_SIZE, header, inBuf);
+                	WsdPacket_parsePacketHeader(packet, header, 0);
+                	sbody = packet->length;
+                	//if (sbody > 128)
+                	//	mode = MODE_PREAMBLE;
+                	mode = MODE_BODY;
+                	free(header);
+                }
+            } else {
+                if (dlen >= sbody + WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE) {
+                    uint8_t *blob = (uint8_t*) malloc(sbody + WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE);
+                    RINGS_readAll(blob, inBuf);
+
+                    int stotal = sbody + WSD_HEADER_SIZE + WSD_PREAMBLE_SIZE;
+                    jbyteArray ret = env->NewByteArray(stotal);
+                    env->SetByteArrayRegion(ret, 0, stotal, (jbyte*) blob);
+
+
+                    free(blob);
+                    free(packet);
+                    RINGS_Free(inBuf);
+                    free(inBuf);
+
+                    return ret;
+                    //mode = MODE_PREAMBLE;
+                }
+            }
+        } else {
+            jbyteArray ret = env->NewByteArray(0);
+            return ret;
+        }
+    }
+}

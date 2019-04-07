@@ -19,6 +19,7 @@ object TestNativeApiProxy {
     case class UnixDomainWrite(sd: Int, s: Array[Byte])
     case class UnixDomainClose(sd: Int)
     case class UnixDomainReadWsdPacket(sd: Int, timeout: Int)
+    case class UnixDomainReadNsdPacket(sd: Int, timeout: Int)
   }
 
   object Predicts {
@@ -142,6 +143,17 @@ class TestNativeApiProxy(tpRef: ActorRef) extends NativeApiProxy {
   override def unixDomainReadWsdPacket(sd: Int, timeout: Int) = {
     try {
       Await.result(tpRef.ask(Actions.UnixDomainReadWsdPacket(sd, timeout))(3 second), 3 second) match {
+        case Predicts.Throw(ex) => throw ex
+        case v: Array[Byte] => v
+      }
+    } catch {
+      case e: Exception => Array.fill[Byte](100) (0)
+    }
+  }
+
+  override def unixDomainReadNsdPacket(sd: Int, timeout: Int) = {
+    try {
+      Await.result(tpRef.ask(Actions.UnixDomainReadNsdPacket(sd, timeout))(3 second), 3 second) match {
         case Predicts.Throw(ex) => throw ex
         case v: Array[Byte] => v
       }

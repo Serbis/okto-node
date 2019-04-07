@@ -9,6 +9,7 @@ case class Env(
   accessRep: ActorRef = ActorRef.noSender,
   serialBridge: ActorRef = ActorRef.noSender,
   rfBridge: ActorRef = ActorRef.noSender,
+  nsdBridge: ActorRef = ActorRef.noSender,
   systemDaemon: ActorRef = ActorRef.noSender,
   vmPool: ActorRef = ActorRef.noSender,
   scriptsRep: ActorRef = ActorRef.noSender,

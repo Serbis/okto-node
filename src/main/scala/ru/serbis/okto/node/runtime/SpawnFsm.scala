@@ -15,7 +15,10 @@ import ru.serbis.okto.node.syscoms.access.Access
 import ru.serbis.okto.node.syscoms.boot.Boot
 import ru.serbis.okto.node.syscoms.pm.Pm
 import ru.serbis.okto.node.syscoms.proc.Proc
+import ru.serbis.okto.node.syscoms.reboot.Reboot
 import ru.serbis.okto.node.syscoms.storage.Storage
+import ru.serbis.okto.node.syscoms.wipe.Wipe
+import ru.serbis.okto.node.syscoms.shutdown.Shutdown
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -101,6 +104,9 @@ class SpawnFsm(env: Env, testMode: Boolean) extends FSM[State, Data] with Stream
             case "proc" => Some(context.system.actorOf(Proc.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "boot" => Some(context.system.actorOf(Boot.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case "access" => Some(context.system.actorOf(Access.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
+            case "reboot" => Some(context.system.actorOf(Reboot.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
+            case "shutdown" => Some(context.system.actorOf(Shutdown.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
+            case "wipe" => Some(context.system.actorOf(Wipe.props(env, req.args), s"Executor_${System.currentTimeMillis()}"))
             case _ => None
           }
 

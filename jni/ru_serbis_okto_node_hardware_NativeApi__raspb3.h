@@ -114,6 +114,14 @@ JNIEXPORT void JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDom
 JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainReadWsdPacket
   (JNIEnv *, jobject, jint, jint);
 
+/*
+ * Class:     ru_serbis_okto_node_hardware_NativeApi__
+ * Method:    unixDomainReadNsdPacket
+ * Signature: (II)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_ru_serbis_okto_node_hardware_NativeApi_00024_unixDomainReadNsdPacket
+  (JNIEnv *, jobject, jint, jint);
+
 #ifdef __cplusplus
 }
 #endif

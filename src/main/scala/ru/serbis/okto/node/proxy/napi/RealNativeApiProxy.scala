@@ -26,4 +26,6 @@ class RealNativeApiProxy extends NativeApiProxy {
   override def serialReadExbPacket(fd: Int, timeout: Int) = NativeApi.serialReadExbPacket(fd, timeout)
 
   override def unixDomainReadWsdPacket(sd: Int, timeout: Int) = NativeApi.unixDomainReadWsdPacket(sd, timeout)
+
+  override def unixDomainReadNsdPacket(sd: Int, timeout: Int) = NativeApi.unixDomainReadNsdPacket(sd, timeout)
 }

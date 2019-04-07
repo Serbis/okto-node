@@ -12,4 +12,5 @@ object NativeApi {
   @native def unixDomainWrite(sd: Int, s: Array[Byte]): Int
   @native def unixDomainClose(sd: Int)
   @native def unixDomainReadWsdPacket(sd: Int, timeout: Int): Array[Byte]
+  @native def unixDomainReadNsdPacket(sd: Int, timeout: Int): Array[Byte]
 }

@@ -1,4 +1,4 @@
-JAVA_HOME=/usr/lib/jvm/jdk1.8.0_181
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 
 x86: rings.o wsd_packet.o exb_packet.o ru_serbis_okto_node_hardware_NativeApi__x86.o

@@ -183,11 +183,21 @@ class Runner extends FSM[State, Data] with StreamLogger {
 
       logger.info(s"Set nsd socket path to '${cfg.hardwareConfiguration.nsdConfiguration.socket}'")
 
-      val systemDaemon = context.system.actorOf(SystemDaemon.props(
+      /*val systemDaemon = context.system.actorOf(SystemDaemon.props(
         cfg.hardwareConfiguration.nsdConfiguration.socket,
         cfg.hardwareConfiguration.nsdConfiguration.maxReq,
         FiniteDuration(cfg.hardwareConfiguration.nsdConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
         cfg.hardwareConfiguration.emulation), "SystemDaemon"
+      )*/
+
+      //--- nsd 2
+
+      val nsdBridge = context.system.actorOf(NsdBridge.props(
+        cfg.hardwareConfiguration.nsdConfiguration.socket,
+        cfg.hardwareConfiguration.nsdConfiguration.maxReq,
+        FiniteDuration(cfg.hardwareConfiguration.rfConfiguration.responseCleanInterval, TimeUnit.MILLISECONDS),
+        new RealNativeApiProxy(),
+        new RealActorSystemProxy(context.system)), "NsdBridge"
       )
 
       //--- rf
@@ -270,7 +280,8 @@ class Runner extends FSM[State, Data] with StreamLogger {
             bootRep = bootRep,
             serialBridge = serialBridge,
             rfBridge = rfBridge,
-            systemDaemon = systemDaemon,
+            systemDaemon = null,
+            nsdBridge = nsdBridge,
             vmPool = vmPool,
             storageRep = storage,
             eventer = eventer,
